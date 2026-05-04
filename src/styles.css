@@ -437,11 +437,45 @@ p {
 
 .asset-pick {
   display: grid;
+  gap: 7px;
   text-align: left;
 }
 
 .asset-pick.picked {
   outline: 2px solid #22d3ee;
+}
+
+.deck-count-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 12px;
+  color: #b6c2d0;
+}
+
+.deck-count-summary strong {
+  color: #e5edf5;
+  font-size: 18px;
+}
+
+.quantity-control {
+  display: grid;
+  grid-template-columns: 34px 1fr 34px;
+  align-items: end;
+  gap: 6px;
+}
+
+.quantity-control button {
+  height: 34px;
+  padding: 0;
+}
+
+.quantity-control label {
+  gap: 3px;
+}
+
+.quantity-control input {
+  text-align: center;
 }
 
 .session-list,
