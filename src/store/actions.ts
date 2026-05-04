@@ -31,7 +31,14 @@ export type GameActionType =
   | "IMPORT_SESSION"
   | "LOAD_SESSION"
   | "FULL_STATE_SYNC"
-  | "SELECT_OBJECT";
+  | "SELECT_OBJECT"
+  | "CREATE_LAYER"
+  | "DELETE_LAYER"
+  | "RENAME_LAYER"
+  | "TOGGLE_LAYER_VISIBILITY"
+  | "TOGGLE_LAYER_LOCK"
+  | "REORDER_LAYERS"
+  | "ASSIGN_LAYER";
 
 export interface GameAction<TPayload = unknown> {
   id: string;

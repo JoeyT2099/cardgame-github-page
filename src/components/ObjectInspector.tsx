@@ -20,11 +20,11 @@ interface ObjectInspectorProps {
   onDrawDeck: (deckInstanceId: string) => void;
   onShuffleDeck: (deckInstanceId: string) => void;
   onResetDeck: (deckInstanceId: string) => void;
+  onAssignLayer: (object: AnyBoardObject, layerId: string) => void;
 }
 
 export function ObjectInspector(props: ObjectInspectorProps) {
-  const object = findBoardObject(props.session, props.session.selectedObjectId);
-  const [rotationInput, setRotationInput] = React.useState(0);
+  const object = findBoardObject(props.session, props.session.selectedObjectId);  const [rotationInput, setRotationInput] = React.useState(0);
   const [widthInput, setWidthInput] = React.useState(0);
   const [heightInput, setHeightInput] = React.useState(0);
 
@@ -79,6 +79,19 @@ export function ObjectInspector(props: ObjectInspectorProps) {
         {(object.type === "card" || object.type === "token" || object.type === "image") && <button onClick={() => props.onDuplicate(object)}>Duplicate</button>}
         <button className="danger" onClick={() => props.onDelete(object)}>Delete</button>
       </div>
+      {props.session.layers.length > 0 && (
+        <label>
+          Layer
+          <select
+            value={object.layerId ?? ""}
+            onChange={(e) => e.target.value && props.onAssignLayer(object, e.target.value)}
+          >
+            {[...props.session.layers].sort((a, b) => b.order - a.order).map((layer) => (
+              <option key={layer.id} value={layer.id}>{layer.name}</option>
+            ))}
+          </select>
+        </label>
+      )}
       {object.type === "deck" && (
         <div className="inspector-section">
           <button onClick={() => props.onDrawDeck(object.id)}>Draw Random Card</button>

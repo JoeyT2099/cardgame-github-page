@@ -3,6 +3,7 @@ import { AssetLibraryModal } from "./components/AssetLibraryModal";
 import { BoardCanvas } from "./components/BoardCanvas";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { DeckCreatorModal } from "./components/DeckCreatorModal";
+import { LayersPanel } from "./components/LayersPanel";
 import { LobbyPanel } from "./components/LobbyPanel";
 import { MultiplayerPanel } from "./components/MultiplayerPanel";
 import { ObjectInspector } from "./components/ObjectInspector";
@@ -11,7 +12,7 @@ import { SessionManagerModal } from "./components/SessionManagerModal";
 import { Toolbar } from "./components/Toolbar";
 import { createAction, type GameAction } from "./store/actions";
 import { gameReducer, resolveDrawAction } from "./store/gameReducer";
-import { createEmptySession, createLobby } from "./store/initialState";
+import { createEmptySession, createLobby, LAYER_IDS } from "./store/initialState";
 import type { AssetCategory, AssetTemplate, DeckTemplate } from "./types/assets";
 import type { AnyBoardObject, GameSession } from "./types/game";
 import type { AppMode, LobbyState } from "./types/lobby";
@@ -51,6 +52,14 @@ export default function App() {
   const clientSync = React.useRef<ClientSync | null>(null);
   const modeRef = React.useRef<AppMode>("local");
   const importInputRef = React.useRef<HTMLInputElement>(null);
+  const [activeLayerId, setActiveLayerId] = React.useState<string>(LAYER_IDS.cards);
+
+  // Keep activeLayerId valid when layers change (e.g. after loading a session)
+  React.useEffect(() => {
+    if (session.layers.length > 0 && !session.layers.find((l) => l.id === activeLayerId)) {
+      setActiveLayerId(session.layers[session.layers.length - 1].id);
+    }
+  }, [session.layers, activeLayerId]);
 
   React.useEffect(() => {
     sessionRef.current = session;
@@ -156,14 +165,14 @@ export default function App() {
   const placeImage = (assetId: string) => {
     const asset = assets.find((item) => item.id === assetId);
     if (asset) addAssets([{ ...asset, sharedInSession: true }]);
-    applyAction(createAction("PLACE_IMAGE", { id: crypto.randomUUID(), assetId, x: 180, y: 150 }, clientId));
+    applyAction(createAction("PLACE_IMAGE", { id: crypto.randomUUID(), assetId, x: 180, y: 150, layerId: activeLayerId }, clientId));
     setModal(undefined);
   };
 
   const createTokenFromAsset = (assetId: string) => {
     const asset = assets.find((item) => item.id === assetId);
     if (asset) addAssets([{ ...asset, sharedInSession: true }]);
-    applyAction(createAction("CREATE_TOKEN", { id: crypto.randomUUID(), assetId, x: 220, y: 180 }, clientId));
+    applyAction(createAction("CREATE_TOKEN", { id: crypto.randomUUID(), assetId, x: 220, y: 180, layerId: activeLayerId }, clientId));
     setModal(undefined);
   };
 
@@ -173,7 +182,40 @@ export default function App() {
       return;
     }
     addAssets(assets.filter((asset) => deck.cardAssetIds.includes(asset.id) || asset.id === deck.defaultBackAssetId).map((asset) => ({ ...asset, sharedInSession: true })));
-    applyAction(createAction("ADD_DECK_INSTANCE", { id: crypto.randomUUID(), deckTemplateId: deck.id, name: deck.name, cardAssetIds: deck.cardAssetIds, x: 120, y: 120, backAssetId: deck.defaultBackAssetId }, clientId));
+    applyAction(createAction("ADD_DECK_INSTANCE", { id: crypto.randomUUID(), deckTemplateId: deck.id, name: deck.name, cardAssetIds: deck.cardAssetIds, x: 120, y: 120, backAssetId: deck.defaultBackAssetId, layerId: activeLayerId }, clientId));
+  };
+
+  // Layer helpers
+  const getFallbackLayerId = (excludeLayerId: string): string => {
+    const other = session.layers.find((l) => l.id !== excludeLayerId);
+    return other?.id ?? excludeLayerId;
+  };
+
+  const createLayer = () =>
+    applyAction(createAction("CREATE_LAYER", { id: crypto.randomUUID(), name: "New Layer" }, clientId));
+
+  const deleteLayer = (layerId: string) => {
+    const fallbackLayerId = getFallbackLayerId(layerId);
+    applyAction(createAction("DELETE_LAYER", { layerId, fallbackLayerId }, clientId));
+    if (activeLayerId === layerId) setActiveLayerId(fallbackLayerId);
+  };
+
+  const moveLayerUp = (layerId: string) => {
+    const sorted = [...session.layers].sort((a, b) => a.order - b.order);
+    const idx = sorted.findIndex((l) => l.id === layerId);
+    if (idx <= 0) return;
+    const reordered = [...sorted];
+    [reordered[idx - 1], reordered[idx]] = [reordered[idx], reordered[idx - 1]];
+    applyAction(createAction("REORDER_LAYERS", { layerIds: reordered.map((l) => l.id) }, clientId));
+  };
+
+  const moveLayerDown = (layerId: string) => {
+    const sorted = [...session.layers].sort((a, b) => a.order - b.order);
+    const idx = sorted.findIndex((l) => l.id === layerId);
+    if (idx < 0 || idx >= sorted.length - 1) return;
+    const reordered = [...sorted];
+    [reordered[idx], reordered[idx + 1]] = [reordered[idx + 1], reordered[idx]];
+    applyAction(createAction("REORDER_LAYERS", { layerIds: reordered.map((l) => l.id) }, clientId));
   };
 
   const drawDeck = (deckInstanceId: string) => {
@@ -321,8 +363,8 @@ export default function App() {
         onSetBoard={() => setModal("setBoard")}
         onCreateDeck={() => setModal("createDeck")}
         onAddDeck={() => addDeckInstance()}
-        onAddDiscard={() => applyAction(createAction("CREATE_DISCARD_PILE", { id: crypto.randomUUID(), name: "Discard", x: 260, y: 160 }, clientId))}
-        onAddToken={() => applyAction(createAction("CREATE_TOKEN", { id: crypto.randomUUID(), label: "1", color: "#facc15", x: 240, y: 220 }, clientId))}
+        onAddDiscard={() => applyAction(createAction("CREATE_DISCARD_PILE", { id: crypto.randomUUID(), name: "Discard", x: 260, y: 160, layerId: activeLayerId }, clientId))}
+        onAddToken={() => applyAction(createAction("CREATE_TOKEN", { id: crypto.randomUUID(), label: "1", color: "#facc15", x: 240, y: 220, layerId: activeLayerId }, clientId))}
         onPlaceImage={() => setModal("placeImage")}
         onOpenMultiplayer={() => setModal("multiplayer")}
         onSave={saveSession}
@@ -330,6 +372,9 @@ export default function App() {
         onExport={exportSession}
         onImport={() => importInputRef.current?.click()}
         onNewSession={newSession}
+        layers={session.layers}
+        activeLayerId={activeLayerId}
+        onSetActiveLayer={setActiveLayerId}
       />
       <input ref={importInputRef} className="hidden-input" type="file" accept="application/json" onChange={(event) => event.target.files?.[0] && importSession(event.target.files[0])} />
       {error && <div className="toast"><span>{error}</span><button onClick={() => setError("")}>Dismiss</button></div>}
@@ -341,6 +386,18 @@ export default function App() {
             onName={(name) => setLobby((current) => ({ ...current, players: current.players.map((player, index) => index === 0 ? { ...player, name } : player) }))}
             onReady={(ready) => setLobby((current) => ({ ...current, players: current.players.map((player, index) => index === 0 ? { ...player, ready } : player) }))}
             onStart={startLobbyGame}
+          />
+          <LayersPanel
+            layers={session.layers}
+            activeLayerId={activeLayerId}
+            onActivate={setActiveLayerId}
+            onToggleVisible={(layerId) => applyAction(createAction("TOGGLE_LAYER_VISIBILITY", { layerId }, clientId))}
+            onToggleLock={(layerId) => applyAction(createAction("TOGGLE_LAYER_LOCK", { layerId }, clientId))}
+            onRename={(layerId, name) => applyAction(createAction("RENAME_LAYER", { layerId, name }, clientId))}
+            onDelete={deleteLayer}
+            onCreate={createLayer}
+            onMoveUp={moveLayerUp}
+            onMoveDown={moveLayerDown}
           />
           <section className="side-section">
             <h2>Saved Decks</h2>
@@ -375,6 +432,7 @@ export default function App() {
           onDrawDeck={drawDeck}
           onShuffleDeck={shuffleDeck}
           onResetDeck={resetDeck}
+          onAssignLayer={(object, layerId) => applyAction(createAction("ASSIGN_LAYER", { objectType: object.type, objectId: object.id, layerId }, clientId))}
         />
       </div>
       <PlayerHands session={session} assets={assets} onSetActivePlayer={(playerId) => applyAction(createAction("SET_ACTIVE_PLAYER", { playerId }, clientId))} onMoveCardToBoard={(cardId) => applyAction(createAction("MOVE_CARD_TO_BOARD", { cardId, x: 340, y: 240 }, clientId))} />

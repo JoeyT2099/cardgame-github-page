@@ -1,16 +1,33 @@
 import type { DeckTemplate } from "../types/assets";
-import type { CardInstance, GameSession } from "../types/game";
+import type { CardInstance, GameSession, Layer } from "../types/game";
 import type { DrawCardPayload, GameAction, MovePayload, ResizePayload, RotatePayload } from "./actions";
-import { createEmptySession } from "./initialState";
+import { createEmptySession, DEFAULT_LAYERS, LAYER_IDS } from "./initialState";
 import { getNextZIndex } from "./selectors";
 
 const touch = (session: GameSession): GameSession => ({ ...session, lastUpdatedAt: Date.now() });
+
+/** Ensure every loaded session has a layers array and every object has a layerId. */
+const migrateSession = (session: GameSession): GameSession => {
+  const layers = session.layers && session.layers.length > 0 ? session.layers : DEFAULT_LAYERS.map((l) => ({ ...l }));
+  const defaultLayerId = (layers.find((l) => l.id === LAYER_IDS.cards) ?? layers[0]).id;
+  const tokenLayerId = (layers.find((l) => l.id === LAYER_IDS.tokens) ?? layers[0]).id;
+  const boardLayerId = (layers.find((l) => l.id === LAYER_IDS.board) ?? layers[0]).id;
+  return {
+    ...session,
+    layers,
+    deckInstances: session.deckInstances.map((item) => (item.layerId ? item : { ...item, layerId: defaultLayerId })),
+    cardInstances: session.cardInstances.map((item) => (item.layerId ? item : { ...item, layerId: defaultLayerId })),
+    discardPiles: session.discardPiles.map((item) => (item.layerId ? item : { ...item, layerId: defaultLayerId })),
+    tokenInstances: session.tokenInstances.map((item) => (item.layerId ? item : { ...item, layerId: tokenLayerId })),
+    placedImageInstances: session.placedImageInstances.map((item) => (item.layerId ? item : { ...item, layerId: boardLayerId }))
+  };
+};
 
 const updateObject = (
   session: GameSession,
   objectType: MovePayload["objectType"],
   objectId: string,
-  patch: Partial<{ x: number; y: number; rotation: number; width: number; height: number; zIndex: number }>
+  patch: Partial<{ x: number; y: number; rotation: number; width: number; height: number; zIndex: number; layerId: string }>
 ): GameSession => {
   const update = <T extends { id: string }>(items: T[]) => items.map((item) => (item.id === objectId ? { ...item, ...patch } : item));
   if (objectType === "deck") return { ...session, deckInstances: update(session.deckInstances) };
@@ -72,6 +89,7 @@ export const gameReducer = (session: GameSession, action: GameAction): GameSessi
         x: number;
         y: number;
         backAssetId?: string;
+        layerId?: string;
       };
       return touch({
         ...session,
@@ -88,7 +106,8 @@ export const gameReducer = (session: GameSession, action: GameAction): GameSessi
             rotation: 0,
             zIndex: getNextZIndex(session),
             width: 96,
-            height: 136
+            height: 136,
+            layerId: payload.layerId ?? LAYER_IDS.cards
           }
         ],
         selectedObjectId: payload.id
@@ -123,7 +142,8 @@ export const gameReducer = (session: GameSession, action: GameAction): GameSessi
         zIndex: getNextZIndex(session),
         width: 96,
         height: 136,
-        faceUp: true
+        faceUp: true,
+        layerId: deck.layerId ?? LAYER_IDS.cards
       };
       return touch({
         ...session,
@@ -195,34 +215,34 @@ export const gameReducer = (session: GameSession, action: GameAction): GameSessi
       });
     }
     case "CREATE_DISCARD_PILE": {
-      const payload = action.payload as { id: string; name: string; x: number; y: number };
+      const payload = action.payload as { id: string; name: string; x: number; y: number; layerId?: string };
       return touch({
         ...session,
         discardPiles: [
           ...session.discardPiles,
-          { id: payload.id, name: payload.name, cardInstanceIds: [], x: payload.x, y: payload.y, rotation: 0, zIndex: getNextZIndex(session), width: 112, height: 144 }
+          { id: payload.id, name: payload.name, cardInstanceIds: [], x: payload.x, y: payload.y, rotation: 0, zIndex: getNextZIndex(session), width: 112, height: 144, layerId: payload.layerId ?? LAYER_IDS.cards }
         ],
         selectedObjectId: payload.id
       });
     }
     case "CREATE_TOKEN": {
-      const payload = action.payload as { id: string; assetId?: string; label?: string; color?: string; x: number; y: number };
+      const payload = action.payload as { id: string; assetId?: string; label?: string; color?: string; x: number; y: number; layerId?: string };
       return touch({
         ...session,
         tokenInstances: [
           ...session.tokenInstances,
-          { id: payload.id, assetId: payload.assetId, label: payload.label, color: payload.color, x: payload.x, y: payload.y, rotation: 0, zIndex: getNextZIndex(session), width: 64, height: 64 }
+          { id: payload.id, assetId: payload.assetId, label: payload.label, color: payload.color, x: payload.x, y: payload.y, rotation: 0, zIndex: getNextZIndex(session), width: 64, height: 64, layerId: payload.layerId ?? LAYER_IDS.tokens }
         ],
         selectedObjectId: payload.id
       });
     }
     case "PLACE_IMAGE": {
-      const payload = action.payload as { id: string; assetId: string; x: number; y: number };
+      const payload = action.payload as { id: string; assetId: string; x: number; y: number; layerId?: string };
       return touch({
         ...session,
         placedImageInstances: [
           ...session.placedImageInstances,
-          { id: payload.id, assetId: payload.assetId, x: payload.x, y: payload.y, rotation: 0, zIndex: getNextZIndex(session), width: 180, height: 140 }
+          { id: payload.id, assetId: payload.assetId, x: payload.x, y: payload.y, rotation: 0, zIndex: getNextZIndex(session), width: 180, height: 140, layerId: payload.layerId ?? LAYER_IDS.board }
         ],
         selectedObjectId: payload.id
       });
@@ -286,7 +306,55 @@ export const gameReducer = (session: GameSession, action: GameAction): GameSessi
     case "LOAD_SESSION":
     case "FULL_STATE_SYNC":
     case "START_GAME":
-      return action.payload as GameSession;
+      return migrateSession(action.payload as GameSession);
+    case "CREATE_LAYER": {
+      const payload = action.payload as { id: string; name: string };
+      const maxOrder = session.layers.reduce((max, l) => Math.max(max, l.order), -1);
+      const newLayer: Layer = { id: payload.id, name: payload.name, visible: true, locked: false, order: maxOrder + 1 };
+      return touch({ ...session, layers: [...session.layers, newLayer] });
+    }
+    case "DELETE_LAYER": {
+      const payload = action.payload as { layerId: string; fallbackLayerId: string };
+      if (session.layers.length <= 1) return session;
+      const reassign = <T extends { layerId?: string }>(items: T[]): T[] =>
+        items.map((item) => (item.layerId === payload.layerId ? { ...item, layerId: payload.fallbackLayerId } : item));
+      return touch({
+        ...session,
+        layers: session.layers.filter((l) => l.id !== payload.layerId),
+        deckInstances: reassign(session.deckInstances),
+        cardInstances: reassign(session.cardInstances),
+        discardPiles: reassign(session.discardPiles),
+        tokenInstances: reassign(session.tokenInstances),
+        placedImageInstances: reassign(session.placedImageInstances)
+      });
+    }
+    case "RENAME_LAYER": {
+      const payload = action.payload as { layerId: string; name: string };
+      return touch({ ...session, layers: session.layers.map((l) => (l.id === payload.layerId ? { ...l, name: payload.name } : l)) });
+    }
+    case "TOGGLE_LAYER_VISIBILITY": {
+      const payload = action.payload as { layerId: string };
+      return touch({ ...session, layers: session.layers.map((l) => (l.id === payload.layerId ? { ...l, visible: !l.visible } : l)) });
+    }
+    case "TOGGLE_LAYER_LOCK": {
+      const payload = action.payload as { layerId: string };
+      return touch({ ...session, layers: session.layers.map((l) => (l.id === payload.layerId ? { ...l, locked: !l.locked } : l)) });
+    }
+    case "REORDER_LAYERS": {
+      const payload = action.payload as { layerIds: string[] };
+      const reordered = payload.layerIds
+        .map((id, index) => {
+          const layer = session.layers.find((l) => l.id === id);
+          return layer ? { ...layer, order: index } : null;
+        })
+        .filter((l): l is Layer => l !== null);
+      const existing = session.layers.filter((l) => !payload.layerIds.includes(l.id));
+      return touch({ ...session, layers: [...reordered, ...existing] });
+    }
+    case "ASSIGN_LAYER": {
+      const payload = action.payload as { objectId: string; objectType: MovePayload["objectType"]; layerId: string };
+      return touch(updateObject(session, payload.objectType, payload.objectId, { layerId: payload.layerId }));
+    }
     default:
       return session;
   }

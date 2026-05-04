@@ -1,3 +1,5 @@
+import type { Layer } from "../types/game";
+
 interface ToolbarProps {
   onOpenAssets: () => void;
   onSetBoard: () => void;
@@ -12,6 +14,9 @@ interface ToolbarProps {
   onExport: () => void;
   onImport: () => void;
   onNewSession: () => void;
+  layers: Layer[];
+  activeLayerId: string;
+  onSetActiveLayer: (layerId: string) => void;
 }
 
 export function Toolbar(props: ToolbarProps) {
@@ -31,6 +36,20 @@ export function Toolbar(props: ToolbarProps) {
       <button onClick={props.onExport}>Export</button>
       <button onClick={props.onImport}>Import</button>
       <button className="danger subtle" onClick={props.onNewSession}>New Session</button>
+      {props.layers.length > 0 && (
+        <label className="toolbar-layer-label">
+          Active Layer:
+          <select
+            value={props.activeLayerId}
+            onChange={(e) => props.onSetActiveLayer(e.target.value)}
+            className="toolbar-layer-select"
+          >
+            {[...props.layers].sort((a, b) => b.order - a.order).map((layer) => (
+              <option key={layer.id} value={layer.id}>{layer.name}</option>
+            ))}
+          </select>
+        </label>
+      )}
     </header>
   );
 }

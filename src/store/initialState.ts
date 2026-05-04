@@ -1,7 +1,19 @@
-import type { GameSession, Player } from "../types/game";
+import type { GameSession, Layer, Player } from "../types/game";
 import type { LobbyPlayer, LobbyState } from "../types/lobby";
 
 const colors = ["#f97316", "#22c55e", "#38bdf8", "#e879f9"];
+
+export const LAYER_IDS = {
+  board: "layer-board",
+  cards: "layer-cards",
+  tokens: "layer-tokens"
+} as const;
+
+export const DEFAULT_LAYERS: Layer[] = [
+  { id: LAYER_IDS.board, name: "Board", visible: true, locked: false, order: 0 },
+  { id: LAYER_IDS.cards, name: "Cards", visible: true, locked: false, order: 1 },
+  { id: LAYER_IDS.tokens, name: "Tokens", visible: true, locked: false, order: 2 }
+];
 
 export const createPlayers = (count: 2 | 3 | 4): Player[] =>
   Array.from({ length: count }, (_, index) => ({
@@ -23,6 +35,7 @@ export const createEmptySession = (count: 2 | 3 | 4 = 2, name = "Untitled Sessio
     discardPiles: [],
     tokenInstances: [],
     placedImageInstances: [],
+    layers: DEFAULT_LAYERS.map((layer) => ({ ...layer })),
     lastUpdatedAt: Date.now()
   };
 };
