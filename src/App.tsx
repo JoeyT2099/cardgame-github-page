@@ -12,7 +12,7 @@ import { SessionManagerModal } from "./components/SessionManagerModal";
 import { Toolbar } from "./components/Toolbar";
 import { createAction, type GameAction } from "./store/actions";
 import { gameReducer, resolveDrawAction } from "./store/gameReducer";
-import { createEmptySession, createLobby, LAYER_IDS } from "./store/initialState";
+import { createEmptySession, createLobby, createLobbyPlayer, createPlayers, LAYER_IDS } from "./store/initialState";
 import type { AssetCategory, AssetTemplate, DeckTemplate } from "./types/assets";
 import type { AnyBoardObject, GameSession, SavedGameRecord, SessionBundle } from "./types/game";
 import type { AppMode, LobbyState } from "./types/lobby";
@@ -366,6 +366,17 @@ export default function App() {
     try {
       await hostSync.current?.acceptAnswer(offerPeerId, code);
       setNetworkStatus("connected");
+      setLobby((current) => {
+        if (current.players.length >= current.maxPlayers || current.players.some((player) => player.clientId === offerPeerId)) {
+          return current;
+        }
+        const next = {
+          ...current,
+          players: [...current.players, createLobbyPlayer(offerPeerId || crypto.randomUUID(), false, current.players.length)]
+        };
+        hostSync.current?.broadcast({ kind: "LOBBY_SYNC", lobby: next });
+        return next;
+      });
       hostSync.current?.syncFullState(session, getAssetsForSession(session, assets, deckTemplates), deckTemplates);
     } catch (error) {
       setError(error instanceof Error ? error.message : "Invalid answer code.");
@@ -373,7 +384,11 @@ export default function App() {
   };
 
   const startLobbyGame = () => {
-    const players = lobby.players.map(lobbyPlayerToGamePlayer);
+    const players = lobby.mode === "local" ? createPlayers(lobby.maxPlayers) : lobby.players.slice(0, lobby.maxPlayers).map(lobbyPlayerToGamePlayer);
+    if (lobby.mode === "host" && players.length < lobby.maxPlayers) {
+      setError("Fill each selected player seat before starting the multiplayer game.");
+      return;
+    }
     const nextSession = { ...createEmptySession(lobby.maxPlayers, "Multiplayer Session"), players, activePlayerId: players[0]?.id ?? session.activePlayerId };
     const nextLobby = { ...lobby, status: "in-game" as const };
     setLobby(nextLobby);
@@ -422,6 +437,7 @@ export default function App() {
             onMaxPlayers={(maxPlayers) => setLobby((current) => ({ ...current, maxPlayers }))}
             onName={(name) => setLobby((current) => ({ ...current, players: current.players.map((player, index) => index === 0 ? { ...player, name } : player) }))}
             onReady={(ready) => setLobby((current) => ({ ...current, players: current.players.map((player, index) => index === 0 ? { ...player, ready } : player) }))}
+            onOpenMultiplayer={() => setModal("multiplayer")}
             onStart={startLobbyGame}
           />
           <LayersPanel

@@ -120,6 +120,29 @@ p {
   margin-bottom: 16px;
 }
 
+.lobby-help {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #303a47;
+  border-radius: 8px;
+  background: #111821;
+}
+
+.lobby-help strong {
+  color: #e5edf5;
+}
+
+.lobby-help ol {
+  margin: 0;
+  padding-left: 18px;
+  color: #b6c2d0;
+}
+
+.lobby-help li {
+  margin: 4px 0;
+}
+
 .side-section h2,
 .lobby-panel h2,
 .inspector h2 {
@@ -426,6 +449,44 @@ p {
 .signal-block {
   display: grid;
   gap: 10px;
+}
+
+.seat-list {
+  display: grid;
+  gap: 7px;
+}
+
+.seat-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #303a47;
+  border-radius: 7px;
+  background: #141b24;
+}
+
+.seat-row.occupied {
+  border-color: #33506d;
+  background: #182231;
+}
+
+.seat-row div {
+  display: grid;
+  gap: 2px;
+}
+
+.seat-row em,
+.seat-row small {
+  color: #94a3b8;
+  font-style: normal;
+}
+
+.seat-color {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
 }
 
 .session-row,
