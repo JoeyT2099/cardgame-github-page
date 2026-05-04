@@ -5,13 +5,14 @@ Board Game Sandbox is a lightweight browser tabletop simulator built with React,
 ## Features
 
 - Upload reusable image assets for cards, boards, tokens, decks, and miscellaneous table pieces.
-- Save asset library, deck templates, current session, and named sessions in IndexedDB.
+- Save asset library, deck templates, current session, named sessions, and reusable game bundles in IndexedDB.
 - Set one central board image.
 - Create reusable deck templates from asset library images.
 - Place deck instances on the board, shuffle/reset them, and draw random cards into player hands.
 - Move, rotate, resize, flip, duplicate, delete, bring forward, and send back board objects.
 - Create discard piles, colored tokens, image tokens, and generic placed images.
-- Export/import full session JSON with required assets and deck templates.
+- Export/import game JSON with the required assets, deck templates, and table setup.
+- Rotate the table locally to view it from any player's side, with local-only card hover readability.
 - Use local mode fully in one browser.
 - Optionally connect browsers with WebRTC DataChannels using manual offer/answer copy-paste signaling.
 
@@ -53,8 +54,17 @@ Stored locally:
 - Deck Templates
 - Current Game Session
 - Saved Game Sessions
+- Saved Games
 
 Starting a new session clears the table only. It does not delete uploaded assets or saved deck templates.
+
+## Saved Games
+
+Use `Save Game` to capture the current board game setup as a reusable game bundle. A saved game includes the current session, board image, placed decks, card state, discard piles, tokens, generic images, layers, required asset images, and required deck templates.
+
+This lets you keep one setup for one card game and another setup for a different board or card game. Loading a saved game replaces the current table and adds any missing assets or deck templates to the local library.
+
+Game exports are JSON files. Importing a game JSON loads that setup and stores it in the Saved Games list when the export is marked as a game bundle.
 
 ## Asset Library
 
@@ -71,6 +81,12 @@ The multiplayer MVP syncs only assets needed by the current session instead of b
 ## Creating Decks
 
 Open `Create Deck`, choose existing card images or upload new ones, name the deck, optionally choose a card back, and save it. A deck template is reusable and is not consumed by drawing cards. Deck instances placed on the board have their own remaining-card list.
+
+## Player Perspective
+
+Use the `View From` selector in the hand panel to rotate the tabletop for a chosen player's side of the table. This is local-only and does not change the shared board state.
+
+Object rotation still works as a normal game action and syncs to other users. Hovering a board card temporarily turns and enlarges it toward the local viewer for readability without changing how that card is displayed to other players.
 
 ## Starting A New Game
 

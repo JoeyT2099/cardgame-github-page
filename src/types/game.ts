@@ -81,10 +81,19 @@ export interface GameSession {
 
 export interface SessionBundle {
   version: 1;
+  kind?: "session" | "game";
+  name?: string;
   exportedAt: number;
   session: GameSession;
   assets: import("./assets").AssetTemplate[];
   deckTemplates: DeckTemplate[];
+}
+
+export interface SavedGameRecord {
+  id: string;
+  name: string;
+  updatedAt: number;
+  bundle: SessionBundle;
 }
 
 export type AnyBoardObject =

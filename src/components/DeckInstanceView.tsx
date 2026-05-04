@@ -4,12 +4,13 @@ import { DraggableObject } from "./CardView";
 interface DeckInstanceViewProps {
   deck: DeckInstance;
   selected: boolean;
+  perspectiveRotation: number;
   onSelect: () => void;
   onDragEnd: (x: number, y: number) => void;
   onDraw: () => void;
 }
 
-export function DeckInstanceView({ deck, selected, onSelect, onDragEnd, onDraw }: DeckInstanceViewProps) {
+export function DeckInstanceView({ deck, selected, perspectiveRotation, onSelect, onDragEnd, onDraw }: DeckInstanceViewProps) {
   return (
     <DraggableObject
       className={`board-object deck-object ${selected ? "selected" : ""}`}
@@ -21,6 +22,7 @@ export function DeckInstanceView({ deck, selected, onSelect, onDragEnd, onDraw }
         zIndex: deck.zIndex,
         transform: `rotate(${deck.rotation}deg)`
       }}
+      movementRotation={perspectiveRotation}
       onSelect={onSelect}
       onDragEnd={onDragEnd}
     >

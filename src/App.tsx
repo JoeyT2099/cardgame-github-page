@@ -14,7 +14,7 @@ import { createAction, type GameAction } from "./store/actions";
 import { gameReducer, resolveDrawAction } from "./store/gameReducer";
 import { createEmptySession, createLobby, LAYER_IDS } from "./store/initialState";
 import type { AssetCategory, AssetTemplate, DeckTemplate } from "./types/assets";
-import type { AnyBoardObject, GameSession } from "./types/game";
+import type { AnyBoardObject, GameSession, SavedGameRecord, SessionBundle } from "./types/game";
 import type { AppMode, LobbyState } from "./types/lobby";
 import { lobbyPlayerToGamePlayer } from "./types/lobby";
 import type { MultiplayerMessage, NetworkStatus, PeerConnectionStatus } from "./types/multiplayer";
@@ -23,6 +23,7 @@ import { ClientSync } from "./multiplayer/clientSync";
 import { HostSync } from "./multiplayer/hostSync";
 import { getAssets, saveAsset, deleteAsset } from "./storage/assetStorage";
 import { getDeckTemplates, saveDeckTemplate } from "./storage/deckStorage";
+import { deleteSavedGame, getSavedGames, saveGameBundle } from "./storage/gameStorage";
 import { createSessionBundle, mergeById, parseSessionBundle, stringifySessionBundle } from "./storage/importExport";
 import { getSavedSessions, loadCurrentSession, saveCurrentSession, saveNamedSession, deleteSavedSession, type SavedSessionRecord } from "./storage/sessionStorage";
 
@@ -30,10 +31,16 @@ type ModalName = "assets" | "setBoard" | "createDeck" | "addDeck" | "placeImage"
 
 const clientId = crypto.randomUUID();
 
+const getPerspectiveRotation = (session: GameSession, playerId: string) => {
+  const index = Math.max(0, session.players.findIndex((player) => player.id === playerId));
+  return (index * 360) / Math.max(1, session.players.length);
+};
+
 export default function App() {
   const [assets, setAssets] = React.useState<AssetTemplate[]>([]);
   const [deckTemplates, setDeckTemplates] = React.useState<DeckTemplate[]>([]);
   const [savedSessions, setSavedSessions] = React.useState<SavedSessionRecord[]>([]);
+  const [savedGames, setSavedGames] = React.useState<SavedGameRecord[]>([]);
   const [session, dispatchBase] = React.useReducer(gameReducer, createEmptySession(2, "Local Session"));
   const sessionRef = React.useRef(session);
   const assetsRef = React.useRef(assets);
@@ -53,6 +60,7 @@ export default function App() {
   const modeRef = React.useRef<AppMode>("local");
   const importInputRef = React.useRef<HTMLInputElement>(null);
   const [activeLayerId, setActiveLayerId] = React.useState<string>(LAYER_IDS.cards);
+  const [perspectivePlayerId, setPerspectivePlayerId] = React.useState<string>(session.activePlayerId);
 
   // Keep activeLayerId valid when layers change (e.g. after loading a session)
   React.useEffect(() => {
@@ -61,6 +69,12 @@ export default function App() {
       setActiveLayerId(topLayer.id);
     }
   }, [session.layers, activeLayerId]);
+
+  React.useEffect(() => {
+    if (!session.players.find((player) => player.id === perspectivePlayerId)) {
+      setPerspectivePlayerId(session.activePlayerId);
+    }
+  }, [session.players, session.activePlayerId, perspectivePlayerId]);
 
   React.useEffect(() => {
     sessionRef.current = session;
@@ -80,11 +94,12 @@ export default function App() {
   }, [mode]);
 
   React.useEffect(() => {
-    Promise.all([getAssets(), getDeckTemplates(), getSavedSessions(), loadCurrentSession()])
-      .then(([loadedAssets, loadedDecks, loadedSessions, current]) => {
+    Promise.all([getAssets(), getDeckTemplates(), getSavedSessions(), getSavedGames(), loadCurrentSession()])
+      .then(([loadedAssets, loadedDecks, loadedSessions, loadedGames, current]) => {
         setAssets(loadedAssets);
         setDeckTemplates(loadedDecks);
         setSavedSessions(loadedSessions);
+        setSavedGames(loadedGames);
         if (current) dispatchBase(createAction("LOAD_SESSION", current, clientId));
       })
       .catch(() => setError("IndexedDB unavailable or failed to load saved data."));
@@ -260,8 +275,24 @@ export default function App() {
     saveNamedSession(session).then(() => getSavedSessions().then(setSavedSessions)).catch(() => setError("Failed to save session."));
   };
 
+  const loadGameBundle = (bundle: SessionBundle) => {
+    addAssets(bundle.assets);
+    bundle.deckTemplates.forEach(persistDeckTemplate);
+    applyAction(createAction("LOAD_SESSION", bundle.session, clientId));
+    setModal(undefined);
+  };
+
+  const saveGame = (name = window.prompt("Game name", session.name) ?? "") => {
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
+    const bundle = createSessionBundle({ ...session, name: trimmedName }, assets, deckTemplates, { kind: "game", name: trimmedName });
+    saveGameBundle(trimmedName, bundle)
+      .then(() => getSavedGames().then(setSavedGames))
+      .catch(() => setError("Failed to save game."));
+  };
+
   const exportSession = () => {
-    const bundle = createSessionBundle(session, assets, deckTemplates);
+    const bundle = createSessionBundle(session, assets, deckTemplates, { kind: "game", name: session.name });
     const blob = new Blob([stringifySessionBundle(bundle)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -277,6 +308,10 @@ export default function App() {
       addAssets(bundle.assets);
       bundle.deckTemplates.forEach(persistDeckTemplate);
       applyAction(createAction("LOAD_SESSION", bundle.session, clientId));
+      if (bundle.kind === "game") {
+        const gameName = bundle.name ?? bundle.session.name;
+        saveGameBundle(gameName, bundle).then(() => getSavedGames().then(setSavedGames)).catch(() => undefined);
+      }
     } catch (error) {
       setError(error instanceof Error ? error.message : "Imported session invalid.");
     }
@@ -369,6 +404,7 @@ export default function App() {
         onPlaceImage={() => setModal("placeImage")}
         onOpenMultiplayer={() => setModal("multiplayer")}
         onSave={saveSession}
+        onSaveGame={() => saveGame()}
         onLoad={() => setModal("sessions")}
         onExport={exportSession}
         onImport={() => importInputRef.current?.click()}
@@ -416,7 +452,7 @@ export default function App() {
             </div>
           </section>
         </aside>
-        <BoardCanvas session={session} assets={assets} onSelect={(objectId) => applyAction(createAction("SELECT_OBJECT", { objectId }, clientId))} onMove={moveObject} onDrawDeck={drawDeck} />
+        <BoardCanvas session={session} assets={assets} perspectiveRotation={getPerspectiveRotation(session, perspectivePlayerId)} onSelect={(objectId) => applyAction(createAction("SELECT_OBJECT", { objectId }, clientId))} onMove={moveObject} onDrawDeck={drawDeck} />
         <ObjectInspector
           session={session}
           assets={assets}
@@ -436,7 +472,14 @@ export default function App() {
           onAssignLayer={(object, layerId) => applyAction(createAction("ASSIGN_LAYER", { objectType: object.type, objectId: object.id, layerId }, clientId))}
         />
       </div>
-      <PlayerHands session={session} assets={assets} onSetActivePlayer={(playerId) => applyAction(createAction("SET_ACTIVE_PLAYER", { playerId }, clientId))} onMoveCardToBoard={(cardId) => applyAction(createAction("MOVE_CARD_TO_BOARD", { cardId, x: 340, y: 240 }, clientId))} />
+      <PlayerHands
+        session={session}
+        assets={assets}
+        perspectivePlayerId={perspectivePlayerId}
+        onSetActivePlayer={(playerId) => applyAction(createAction("SET_ACTIVE_PLAYER", { playerId }, clientId))}
+        onSetPerspectivePlayer={setPerspectivePlayerId}
+        onMoveCardToBoard={(cardId) => applyAction(createAction("MOVE_CARD_TO_BOARD", { cardId, x: 340, y: 240 }, clientId))}
+      />
       {(modal === "assets" || modal === "setBoard" || modal === "placeImage" || modal === "token") && (
         <AssetLibraryModal
           assets={assets}
@@ -463,7 +506,19 @@ export default function App() {
         />
       )}
       {modal === "createDeck" && <DeckCreatorModal assets={assets} onClose={() => setModal(undefined)} onUpload={addAssets} onSave={persistDeckTemplate} onError={setError} />}
-      {modal === "sessions" && <SessionManagerModal sessions={savedSessions} currentSession={session} onClose={() => setModal(undefined)} onLoad={(next) => { applyAction(createAction("LOAD_SESSION", next, clientId)); setModal(undefined); }} onDelete={(id) => deleteSavedSession(id).then(() => getSavedSessions().then(setSavedSessions))} />}
+      {modal === "sessions" && (
+        <SessionManagerModal
+          sessions={savedSessions}
+          games={savedGames}
+          currentSession={session}
+          onClose={() => setModal(undefined)}
+          onLoad={(next) => { applyAction(createAction("LOAD_SESSION", next, clientId)); setModal(undefined); }}
+          onDelete={(id) => deleteSavedSession(id).then(() => getSavedSessions().then(setSavedSessions))}
+          onSaveGame={saveGame}
+          onLoadGame={loadGameBundle}
+          onDeleteGame={(id) => deleteSavedGame(id).then(() => getSavedGames().then(setSavedGames))}
+        />
+      )}
       <MultiplayerPanel
         open={modal === "multiplayer"}
         mode={mode}

@@ -4,11 +4,12 @@ import { DraggableObject } from "./CardView";
 interface DiscardPileViewProps {
   pile: DiscardPile;
   selected: boolean;
+  perspectiveRotation: number;
   onSelect: () => void;
   onDragEnd: (x: number, y: number) => void;
 }
 
-export function DiscardPileView({ pile, selected, onSelect, onDragEnd }: DiscardPileViewProps) {
+export function DiscardPileView({ pile, selected, perspectiveRotation, onSelect, onDragEnd }: DiscardPileViewProps) {
   return (
     <DraggableObject
       className={`board-object discard-object ${selected ? "selected" : ""}`}
@@ -20,6 +21,7 @@ export function DiscardPileView({ pile, selected, onSelect, onDragEnd }: Discard
         zIndex: pile.zIndex,
         transform: `rotate(${pile.rotation}deg)`
       }}
+      movementRotation={perspectiveRotation}
       onSelect={onSelect}
       onDragEnd={onDragEnd}
     >

@@ -147,6 +147,13 @@ p {
   background-size: 40px 40px;
 }
 
+.board-stage {
+  position: absolute;
+  inset: 0;
+  transform-origin: center;
+  transition: transform 180ms ease;
+}
+
 .board-background {
   position: absolute;
   inset: 50% auto auto 50%;
@@ -180,6 +187,12 @@ p {
   border-radius: 7px;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
   overflow: hidden;
+  transform-origin: center;
+}
+
+.card-object.readable-hover {
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.52);
+  transition: transform 120ms ease, box-shadow 120ms ease;
 }
 
 .board-object.selected {
@@ -265,6 +278,18 @@ p {
   gap: 8px;
   align-items: center;
   flex-wrap: wrap;
+}
+
+.perspective-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.perspective-select select {
+  width: 150px;
 }
 
 .player-tabs button.active,
@@ -409,6 +434,27 @@ p {
   grid-template-columns: 1fr auto auto;
   align-items: center;
   gap: 10px;
+}
+
+.game-row {
+  grid-template-columns: 1fr auto auto auto;
+}
+
+.manager-section {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.manager-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.manager-heading h3 {
+  margin: 0;
 }
 
 .session-row div {

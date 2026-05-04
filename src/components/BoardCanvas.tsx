@@ -10,6 +10,7 @@ import { TokenView } from "./TokenView";
 interface BoardCanvasProps {
   session: GameSession;
   assets: AssetTemplate[];
+  perspectiveRotation: number;
   onSelect: (objectId?: string) => void;
   onMove: (objectType: "deck" | "card" | "discard" | "token" | "image", objectId: string, x: number, y: number) => void;
   onDrawDeck: (deckInstanceId: string) => void;
@@ -23,7 +24,7 @@ const effectiveZIndex = (layers: Layer[], layerId?: string, zIndex = 0): number 
   return (layer?.order ?? 0) * 1000 + zIndex;
 };
 
-export function BoardCanvas({ session, assets, onSelect, onMove, onDrawDeck }: BoardCanvasProps) {
+export function BoardCanvas({ session, assets, perspectiveRotation, onSelect, onMove, onDrawDeck }: BoardCanvasProps) {
   const assetMap = React.useMemo(() => new Map(assets.map((asset) => [asset.id, asset])), [assets]);
   const boardAsset = session.boardAssetId ? assetMap.get(session.boardAssetId) : undefined;
   const { layers } = session;
@@ -43,6 +44,7 @@ export function BoardCanvas({ session, assets, onSelect, onMove, onDrawDeck }: B
   return (
     <main className="board-wrap">
       <div className="board-canvas" onPointerDown={(event) => event.currentTarget === event.target && onSelect(undefined)}>
+        <div className="board-stage" style={{ transform: `rotate(${perspectiveRotation}deg)` }} onPointerDown={(event) => event.currentTarget === event.target && onSelect(undefined)}>
         {boardAsset ? <img className="board-background" src={boardAsset.imageDataUrl} alt={boardAsset.name} /> : <div className="empty-board">Set a board image or start placing pieces.</div>}
         {session.placedImageInstances
           .filter((image) => !isHidden(image.layerId))
@@ -52,6 +54,7 @@ export function BoardCanvas({ session, assets, onSelect, onMove, onDrawDeck }: B
               image={{ ...image, zIndex: effectiveZIndex(layers, image.layerId, image.zIndex) }}
               asset={assetMap.get(image.assetId)}
               selected={session.selectedObjectId === image.id}
+              perspectiveRotation={perspectiveRotation}
               onSelect={isLocked(image.layerId) ? noop : () => onSelect(image.id)}
               onDragEnd={isLocked(image.layerId) ? noop : (x, y) => onMove("image", image.id, x, y)}
             />
@@ -63,6 +66,7 @@ export function BoardCanvas({ session, assets, onSelect, onMove, onDrawDeck }: B
               key={deck.id}
               deck={{ ...deck, zIndex: effectiveZIndex(layers, deck.layerId, deck.zIndex) }}
               selected={session.selectedObjectId === deck.id}
+              perspectiveRotation={perspectiveRotation}
               onSelect={isLocked(deck.layerId) ? noop : () => onSelect(deck.id)}
               onDragEnd={isLocked(deck.layerId) ? noop : (x, y) => onMove("deck", deck.id, x, y)}
               onDraw={isLocked(deck.layerId) ? noop : () => onDrawDeck(deck.id)}
@@ -75,6 +79,7 @@ export function BoardCanvas({ session, assets, onSelect, onMove, onDrawDeck }: B
               key={pile.id}
               pile={{ ...pile, zIndex: effectiveZIndex(layers, pile.layerId, pile.zIndex) }}
               selected={session.selectedObjectId === pile.id}
+              perspectiveRotation={perspectiveRotation}
               onSelect={isLocked(pile.layerId) ? noop : () => onSelect(pile.id)}
               onDragEnd={isLocked(pile.layerId) ? noop : (x, y) => onMove("discard", pile.id, x, y)}
             />
@@ -88,6 +93,7 @@ export function BoardCanvas({ session, assets, onSelect, onMove, onDrawDeck }: B
               asset={assetMap.get(card.assetId)}
               backAsset={card.backAssetId ? assetMap.get(card.backAssetId) : undefined}
               selected={session.selectedObjectId === card.id}
+              perspectiveRotation={perspectiveRotation}
               onSelect={isLocked(card.layerId) ? noop : () => onSelect(card.id)}
               onDragEnd={isLocked(card.layerId) ? noop : (x, y) => onMove("card", card.id, x, y)}
             />
@@ -100,10 +106,12 @@ export function BoardCanvas({ session, assets, onSelect, onMove, onDrawDeck }: B
               token={{ ...token, zIndex: effectiveZIndex(layers, token.layerId, token.zIndex) }}
               asset={token.assetId ? assetMap.get(token.assetId) : undefined}
               selected={session.selectedObjectId === token.id}
+              perspectiveRotation={perspectiveRotation}
               onSelect={isLocked(token.layerId) ? noop : () => onSelect(token.id)}
               onDragEnd={isLocked(token.layerId) ? noop : (x, y) => onMove("token", token.id, x, y)}
             />
           ))}
+        </div>
       </div>
     </main>
   );

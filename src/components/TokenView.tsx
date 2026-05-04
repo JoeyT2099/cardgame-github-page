@@ -6,11 +6,12 @@ interface TokenViewProps {
   token: TokenInstance;
   asset?: AssetTemplate;
   selected: boolean;
+  perspectiveRotation: number;
   onSelect: () => void;
   onDragEnd: (x: number, y: number) => void;
 }
 
-export function TokenView({ token, asset, selected, onSelect, onDragEnd }: TokenViewProps) {
+export function TokenView({ token, asset, selected, perspectiveRotation, onSelect, onDragEnd }: TokenViewProps) {
   return (
     <DraggableObject
       className={`board-object token-object ${selected ? "selected" : ""}`}
@@ -23,6 +24,7 @@ export function TokenView({ token, asset, selected, onSelect, onDragEnd }: Token
         transform: `rotate(${token.rotation}deg)`,
         background: asset ? undefined : token.color ?? "#facc15"
       }}
+      movementRotation={perspectiveRotation}
       onSelect={onSelect}
       onDragEnd={onDragEnd}
     >

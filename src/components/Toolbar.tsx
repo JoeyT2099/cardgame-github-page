@@ -10,6 +10,7 @@ interface ToolbarProps {
   onPlaceImage: () => void;
   onOpenMultiplayer: () => void;
   onSave: () => void;
+  onSaveGame: () => void;
   onLoad: () => void;
   onExport: () => void;
   onImport: () => void;
@@ -32,6 +33,7 @@ export function Toolbar(props: ToolbarProps) {
       <button onClick={props.onPlaceImage}>Place Image</button>
       <button onClick={props.onOpenMultiplayer}>Multiplayer</button>
       <button onClick={props.onSave}>Save Session</button>
+      <button onClick={props.onSaveGame}>Save Game</button>
       <button onClick={props.onLoad}>Load Session</button>
       <button onClick={props.onExport}>Export</button>
       <button onClick={props.onImport}>Import</button>

@@ -1,10 +1,11 @@
 const DB_NAME = "board-game-sandbox";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export const STORES = {
   assets: "assets",
   deckTemplates: "deckTemplates",
   savedSessions: "savedSessions",
+  savedGames: "savedGames",
   keyValue: "keyValue"
 } as const;
 

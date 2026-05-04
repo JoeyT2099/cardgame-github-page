@@ -5,11 +5,13 @@ import type { GameSession } from "../types/game";
 interface PlayerHandsProps {
   session: GameSession;
   assets: AssetTemplate[];
+  perspectivePlayerId: string;
   onSetActivePlayer: (playerId: string) => void;
+  onSetPerspectivePlayer: (playerId: string) => void;
   onMoveCardToBoard: (cardId: string) => void;
 }
 
-export function PlayerHands({ session, assets, onSetActivePlayer, onMoveCardToBoard }: PlayerHandsProps) {
+export function PlayerHands({ session, assets, perspectivePlayerId, onSetActivePlayer, onSetPerspectivePlayer, onMoveCardToBoard }: PlayerHandsProps) {
   const assetMap = React.useMemo(() => new Map(assets.map((asset) => [asset.id, asset])), [assets]);
 
   return (
@@ -25,6 +27,14 @@ export function PlayerHands({ session, assets, onSetActivePlayer, onMoveCardToBo
             {player.name} ({player.handCardInstanceIds.length})
           </button>
         ))}
+        <label className="perspective-select">
+          View From
+          <select value={perspectivePlayerId} onChange={(event) => onSetPerspectivePlayer(event.target.value)}>
+            {session.players.map((player) => (
+              <option key={player.id} value={player.id}>{player.name}</option>
+            ))}
+          </select>
+        </label>
       </div>
       <div className="hand-strip">
         {session.players.map((player) => (

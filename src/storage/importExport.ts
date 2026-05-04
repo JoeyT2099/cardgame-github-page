@@ -7,7 +7,8 @@ const collectDeckTemplateIds = (session: GameSession) => new Set(session.deckIns
 export const createSessionBundle = (
   session: GameSession,
   assets: AssetTemplate[],
-  deckTemplates: DeckTemplate[]
+  deckTemplates: DeckTemplate[],
+  options?: { kind?: "session" | "game"; name?: string }
 ): SessionBundle => {
   const requiredAssetIds = new Set(getRequiredAssetIds(session));
   const deckTemplateIds = collectDeckTemplateIds(session);
@@ -18,6 +19,8 @@ export const createSessionBundle = (
   });
   return {
     version: 1,
+    kind: options?.kind ?? "session",
+    name: options?.name ?? session.name,
     exportedAt: Date.now(),
     session,
     assets: assets.filter((asset) => requiredAssetIds.has(asset.id)),
