@@ -24,7 +24,8 @@ interface ObjectInspectorProps {
 }
 
 export function ObjectInspector(props: ObjectInspectorProps) {
-  const object = findBoardObject(props.session, props.session.selectedObjectId);  const [rotationInput, setRotationInput] = React.useState(0);
+  const object = findBoardObject(props.session, props.session.selectedObjectId);
+  const [rotationInput, setRotationInput] = React.useState(0);
   const [widthInput, setWidthInput] = React.useState(0);
   const [heightInput, setHeightInput] = React.useState(0);
 

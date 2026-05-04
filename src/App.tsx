@@ -57,7 +57,8 @@ export default function App() {
   // Keep activeLayerId valid when layers change (e.g. after loading a session)
   React.useEffect(() => {
     if (session.layers.length > 0 && !session.layers.find((l) => l.id === activeLayerId)) {
-      setActiveLayerId(session.layers[session.layers.length - 1].id);
+      const topLayer = session.layers.reduce((best, l) => (l.order > best.order ? l : best), session.layers[0]);
+      setActiveLayerId(topLayer.id);
     }
   }, [session.layers, activeLayerId]);
 
