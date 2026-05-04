@@ -519,3 +519,116 @@ p {
   color: #fecaca;
   padding: 8px;
 }
+
+/* Layers panel */
+.layers-list {
+  display: grid;
+  gap: 4px;
+}
+
+.layer-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 7px;
+  border-radius: 6px;
+  border: 1px solid #2a3442;
+  background: #1a2130;
+  cursor: pointer;
+  user-select: none;
+}
+
+.layer-row:hover {
+  background: #202a3a;
+}
+
+.layer-row.layer-active {
+  border-color: #38bdf8;
+  background: #0d2233;
+}
+
+.layer-controls {
+  display: flex;
+  gap: 2px;
+}
+
+.layer-icon-btn {
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.layer-icon-btn:hover {
+  background: #2a3442;
+  color: #e5edf5;
+}
+
+.layer-icon-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.layer-icon-off {
+  opacity: 0.45;
+}
+
+.layer-icon-active {
+  color: #f97316;
+}
+
+.layer-name-wrap {
+  overflow: hidden;
+}
+
+.layer-name {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.layer-name-input {
+  width: 100%;
+  padding: 2px 5px;
+  font-size: 13px;
+  border-radius: 4px;
+}
+
+.layer-order-btns {
+  display: flex;
+  gap: 2px;
+}
+
+.layer-delete-btn:hover {
+  color: #f87171;
+  background: #450a0a;
+}
+
+.layer-add-btn {
+  width: 100%;
+  margin-top: 6px;
+}
+
+/* Toolbar layer selector */
+.toolbar-layer-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #94a3b8;
+  white-space: nowrap;
+  font-size: 13px;
+  margin-left: 8px;
+}
+
+.toolbar-layer-select {
+  width: auto;
+  padding: 5px 8px;
+  font-size: 13px;
+}

@@ -3,6 +3,14 @@ import type { DeckTemplate } from "./assets";
 export type BoardObjectType = "deck" | "card" | "discard" | "token" | "image";
 export type CardLocation = "hand" | "board" | "discard";
 
+export interface Layer {
+  id: string;
+  name: string;
+  visible: boolean;
+  locked: boolean;
+  order: number;
+}
+
 export interface BoardObjectBase {
   id: string;
   type: BoardObjectType;
@@ -12,6 +20,7 @@ export interface BoardObjectBase {
   zIndex: number;
   width: number;
   height: number;
+  layerId?: string;
 }
 
 export interface DeckInstance extends Omit<BoardObjectBase, "type"> {
@@ -65,6 +74,7 @@ export interface GameSession {
   discardPiles: DiscardPile[];
   tokenInstances: TokenInstance[];
   placedImageInstances: PlacedImageInstance[];
+  layers: Layer[];
   selectedObjectId?: string;
   lastUpdatedAt: number;
 }
