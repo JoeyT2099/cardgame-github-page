@@ -13,7 +13,9 @@ export type MultiplayerMessage =
   | { kind: "DECK_TEMPLATE_SYNC"; deckTemplates: DeckTemplate[] }
   | { kind: "LOBBY_SYNC"; lobby: LobbyState }
   | { kind: "START_GAME"; lobby: LobbyState; session: GameSession; assets: AssetTemplate[]; deckTemplates: DeckTemplate[] }
-  | { kind: "ERROR"; message: string };
+  | { kind: "ERROR"; message: string }
+  /** Sent by the host to a specific joining client to tell them which playerId they were assigned. */
+  | { kind: "PLAYER_ASSIGN"; playerId: string };
 
 export interface PeerConnectionStatus {
   peerId: string;

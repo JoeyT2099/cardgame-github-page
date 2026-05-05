@@ -2,6 +2,8 @@ import type { LobbyState } from "../types/lobby";
 
 interface LobbyPanelProps {
   lobby: LobbyState;
+  /** The clientId of the local browser session, used to highlight "You" in the seat list. */
+  localClientId: string;
   onMaxPlayers: (maxPlayers: 2 | 3 | 4) => void;
   onName: (name: string) => void;
   onReady: (ready: boolean) => void;
@@ -9,7 +11,7 @@ interface LobbyPanelProps {
   onStart: () => void;
 }
 
-export function LobbyPanel({ lobby, onMaxPlayers, onName, onReady, onOpenMultiplayer, onStart }: LobbyPanelProps) {
+export function LobbyPanel({ lobby, localClientId, onMaxPlayers, onName, onReady, onOpenMultiplayer, onStart }: LobbyPanelProps) {
   const self = lobby.players[0];
   const isLocal = lobby.mode === "local";
   const isHost = lobby.mode === "host";
@@ -26,7 +28,9 @@ export function LobbyPanel({ lobby, onMaxPlayers, onName, onReady, onOpenMultipl
       name: player?.name ?? fallbackName,
       status: player ? (player.connected ? "connected" : "disconnected") : isLocal ? "local seat" : "waiting",
       ready: player?.ready ?? isLocal,
-      color: player?.color ?? "#64748b"
+      color: player?.color ?? "#64748b",
+      isYou: player?.clientId === localClientId,
+      isHostSeat: player?.isHost ?? false
     };
   });
 
@@ -84,7 +88,11 @@ export function LobbyPanel({ lobby, onMaxPlayers, onName, onReady, onOpenMultipl
           <div key={seat.seatNumber} className={`seat-row ${seat.player ? "occupied" : ""}`}>
             <span className="seat-color" style={{ background: seat.color }} />
             <div>
-              <strong>Player {seat.seatNumber}</strong>
+              <strong>
+                Player {seat.seatNumber}
+                {seat.isYou && <span className="you-badge">You</span>}
+                {seat.isHostSeat && <span className="host-badge">Host</span>}
+              </strong>
               <em>{seat.name}</em>
             </div>
             <small>{seat.ready ? "ready" : seat.status}</small>

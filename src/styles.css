@@ -340,6 +340,85 @@ p {
   font-weight: 700;
 }
 
+.hand-name-yours {
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hand-card-count {
+  font-weight: 400;
+  color: #94a3b8;
+  font-style: normal;
+}
+
+.hand-row-yours {
+  background: rgba(14, 116, 144, 0.08);
+  border-radius: 6px;
+  padding: 4px 6px;
+  border: 1px solid rgba(34, 211, 238, 0.18);
+}
+
+.hand-row-other {
+  opacity: 0.75;
+}
+
+.hand-cards-hidden {
+  align-items: center;
+}
+
+.hand-card-back {
+  width: 36px;
+  height: 50px;
+  flex: 0 0 auto;
+  border-radius: 4px;
+  background: repeating-linear-gradient(45deg, #334155, #334155 6px, #475569 6px, #475569 12px);
+  border: 1px solid #475569;
+  display: inline-block;
+}
+
+.hand-hidden-count {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.hand-empty-hint {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.hand-no-player {
+  font-size: 12px;
+  margin: 4px 0 0;
+}
+
+/* You / Host identity badges */
+.you-badge,
+.host-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 4px;
+  padding: 1px 5px;
+  margin-left: 5px;
+  vertical-align: middle;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.you-badge {
+  background: #0e7490;
+  color: #e0f9ff;
+  border: 1px solid #22d3ee;
+}
+
+.host-badge {
+  background: #713f12;
+  color: #fef3c7;
+  border: 1px solid #d97706;
+}
+
 .hand-cards {
   display: flex;
   gap: 8px;
