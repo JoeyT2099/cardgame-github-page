@@ -610,8 +610,9 @@ p {
 
 .asset-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  align-items: stretch;
+  gap: 14px;
   max-height: 62vh;
   overflow-y: auto;
   padding-right: 4px;
@@ -630,12 +631,33 @@ p {
   padding: 8px;
 }
 
+.asset-card {
+  display: grid;
+  grid-template-rows: 190px auto auto minmax(0, auto) auto;
+  align-content: start;
+  gap: 8px;
+  min-height: 390px;
+  overflow: hidden;
+}
+
 .asset-card img,
 .asset-pick img {
   aspect-ratio: 4 / 3;
   background: #10151c;
   border-radius: 5px;
   margin-bottom: 8px;
+}
+
+.asset-card img {
+  width: 100%;
+  height: 190px;
+  object-fit: contain;
+  margin: 0;
+}
+
+.asset-card input,
+.asset-card select {
+  min-width: 0;
 }
 
 .asset-actions,
@@ -649,6 +671,8 @@ p {
 .asset-usage {
   color: #fbbf24;
   line-height: 1.3;
+  min-height: 18px;
+  overflow-wrap: anywhere;
 }
 
 .asset-delete-button {
