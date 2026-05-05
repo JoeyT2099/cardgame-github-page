@@ -32,6 +32,8 @@ export function BoardCanvas({ session, assets, perspectiveRotation, zoom, active
   const boardAsset = session.boardAssetId ? assetMap.get(session.boardAssetId) : undefined;
   const { layers } = session;
   const hasBoardContent = Boolean(boardAsset) || session.placedImageInstances.length > 0 || session.deckInstances.length > 0 || session.cardInstances.some((card) => card.location === "board") || session.tokenInstances.length > 0 || session.discardPiles.length > 0;
+  const [pan, setPan] = React.useState({ x: 0, y: 0 });
+  const panStart = React.useRef<{ pointerX: number; pointerY: number; x: number; y: number; moved: boolean } | undefined>(undefined);
 
   const isHidden = (layerId?: string) => {
     const layer = getLayer(layers, layerId);
@@ -45,17 +47,37 @@ export function BoardCanvas({ session, assets, perspectiveRotation, zoom, active
 
   const canInteract = (layerId?: string) => !isLocked(layerId) && (!layerId || layerId === activeLayerId);
   const noop = () => {};
+  const beginPan = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || event.currentTarget !== event.target) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    panStart.current = { pointerX: event.clientX, pointerY: event.clientY, x: pan.x, y: pan.y, moved: false };
+  };
+
+  const movePan = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!panStart.current) return;
+    const dx = event.clientX - panStart.current.pointerX;
+    const dy = event.clientY - panStart.current.pointerY;
+    if (Math.abs(dx) + Math.abs(dy) > 3) panStart.current.moved = true;
+    setPan({ x: panStart.current.x + dx, y: panStart.current.y + dy });
+  };
+
+  const endPan = () => {
+    if (!panStart.current) return;
+    const shouldClearSelection = !panStart.current.moved;
+    panStart.current = undefined;
+    if (shouldClearSelection) onSelect(undefined);
+  };
 
   return (
     <main className="board-wrap">
-      <div className="board-canvas" onPointerDown={(event) => event.currentTarget === event.target && onSelect(undefined)}>
+      <div className="board-canvas" onPointerDown={beginPan} onPointerMove={movePan} onPointerUp={endPan} onPointerCancel={endPan}>
         <div className="board-zoom-controls" onPointerDown={(event) => event.stopPropagation()}>
           <button onClick={() => onZoom(Math.max(0.4, Number((zoom - 0.1).toFixed(2))))}>-</button>
           <input type="range" min="0.4" max="2.5" step="0.1" value={zoom} onChange={(event) => onZoom(Number(event.target.value))} />
           <button onClick={() => onZoom(Math.min(2.5, Number((zoom + 0.1).toFixed(2))))}>+</button>
           <button onClick={() => onZoom(1)}>{Math.round(zoom * 100)}%</button>
         </div>
-        <div className="board-stage" style={{ transform: `rotate(${perspectiveRotation}deg) scale(${zoom})` }} onPointerDown={(event) => event.currentTarget === event.target && onSelect(undefined)}>
+        <div className="board-stage" style={{ transform: `translate(${pan.x}px, ${pan.y}px) rotate(${perspectiveRotation}deg) scale(${zoom})` }} onPointerDown={beginPan} onPointerMove={movePan} onPointerUp={endPan} onPointerCancel={endPan}>
         {boardAsset ? <img className="board-background" src={boardAsset.imageDataUrl} alt={boardAsset.name} /> : !hasBoardContent && <div className="empty-board">Place a board image or start placing pieces.</div>}
         {session.placedImageInstances
           .filter((image) => !isHidden(image.layerId))

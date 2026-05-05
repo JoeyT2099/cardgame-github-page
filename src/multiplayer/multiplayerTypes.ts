@@ -5,6 +5,7 @@ export const DEFAULT_ICE_SERVERS: RTCConfiguration = {
 export interface SignalCode {
   type: "offer" | "answer";
   sdp: RTCSessionDescriptionInit;
+  desiredSeat?: 2 | 3 | 4;
 }
 
 export interface PeerTransport {

@@ -11,6 +11,7 @@ export interface LobbyPlayer {
   connected: boolean;
   ready: boolean;
   isHost: boolean;
+  seatNumber: 1 | 2 | 3 | 4;
 }
 
 export interface LobbyState {

@@ -31,7 +31,40 @@ import { getSavedSessions, loadCurrentSession, saveCurrentSession, saveNamedSess
 
 type ModalName = "assets" | "setBoard" | "createDeck" | "addDeck" | "placeImage" | "token" | "sessions" | "multiplayer" | undefined;
 
-const clientId = crypto.randomUUID();
+const CLIENT_ID_KEY = "board-game-sandbox.clientId";
+const ASSIGNED_PLAYER_KEY = "board-game-sandbox.assignedPlayerId";
+const JOIN_SEAT_KEY = "board-game-sandbox.joinSeat";
+
+const getStoredValue = (key: string) => {
+  try {
+    return window.localStorage.getItem(key) ?? "";
+  } catch {
+    return "";
+  }
+};
+
+const setStoredValue = (key: string, value: string) => {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Storage can be unavailable in private browsing; the session still works in memory.
+  }
+};
+
+const getClientId = () => {
+  const existing = getStoredValue(CLIENT_ID_KEY);
+  if (existing) return existing;
+  const next = crypto.randomUUID();
+  setStoredValue(CLIENT_ID_KEY, next);
+  return next;
+};
+
+const getJoinSeat = (): 2 | 3 | 4 => {
+  const stored = Number(getStoredValue(JOIN_SEAT_KEY));
+  return stored === 3 || stored === 4 ? stored : 2;
+};
+
+const clientId = getClientId();
 
 const getPerspectiveRotation = (session: GameSession, playerId: string) => {
   const index = Math.max(0, session.players.findIndex((player) => player.id === playerId));
@@ -70,7 +103,8 @@ export default function App() {
   const [answerCode, setAnswerCode] = React.useState("");
   const [peers, setPeers] = React.useState<PeerConnectionStatus[]>([]);
   // In multiplayer (join) mode, the host sends us our assigned playerId via PLAYER_ASSIGN.
-  const [myAssignedPlayerId, setMyAssignedPlayerId] = React.useState<string>("");
+  const [myAssignedPlayerId, setMyAssignedPlayerId] = React.useState<string>(() => getStoredValue(ASSIGNED_PLAYER_KEY));
+  const [joinSeat, setJoinSeat] = React.useState<2 | 3 | 4>(() => getJoinSeat());
   const hostSync = React.useRef<HostSync | null>(null);
   const clientSync = React.useRef<ClientSync | null>(null);
   const modeRef = React.useRef<AppMode>("local");
@@ -110,6 +144,14 @@ export default function App() {
   React.useEffect(() => {
     modeRef.current = mode;
   }, [mode]);
+
+  React.useEffect(() => {
+    if (myAssignedPlayerId) setStoredValue(ASSIGNED_PLAYER_KEY, myAssignedPlayerId);
+  }, [myAssignedPlayerId]);
+
+  React.useEffect(() => {
+    setStoredValue(JOIN_SEAT_KEY, String(joinSeat));
+  }, [joinSeat]);
 
   // Keep lobbyRef current so applyHostAction can validate without stale closure.
   React.useEffect(() => {
@@ -448,14 +490,16 @@ export default function App() {
     }
   };
 
-  const joinHost = async (code: string) => {
+  const joinHost = async (code: string, seat: 2 | 3 | 4) => {
     try {
+      setJoinSeat(seat);
       const client = new ClientSync((message) => handleNetworkMessage(message), (connected) => setNetworkStatus(connected ? "connected" : "disconnected"));
       clientSync.current = client;
       setMode("join");
+      setMyAssignedPlayerId("");
       setLobby((current) => ({ ...current, mode: "join" }));
       setNetworkStatus("connecting");
-      setAnswerCode(await client.joinFromOffer(code));
+      setAnswerCode(await client.joinFromOffer(code, seat));
     } catch (error) {
       setNetworkStatus("error");
       setError(error instanceof Error ? error.message : "Invalid offer code.");
@@ -464,14 +508,25 @@ export default function App() {
 
   const acceptAnswer = async (code: string) => {
     try {
-      await hostSync.current?.acceptAnswer(offerPeerId, code);
+      const desiredSeat = await hostSync.current?.acceptAnswer(offerPeerId, code);
       setNetworkStatus("connected");
       const currentLobby = lobbyRef.current;
       if (currentLobby.players.length < currentLobby.maxPlayers && !currentLobby.players.some((player) => player.clientId === offerPeerId)) {
-        const newPlayer = createLobbyPlayer(offerPeerId || crypto.randomUUID(), false, currentLobby.players.length);
+        const occupiedSeats = new Set(currentLobby.players.map((player, index) => player.seatNumber ?? ((index + 1) as 1 | 2 | 3 | 4)));
+        const requestedSeat =
+          desiredSeat && desiredSeat <= currentLobby.maxPlayers && !occupiedSeats.has(desiredSeat)
+            ? desiredSeat
+            : undefined;
+        const fallbackSeat = ([2, 3, 4] as const).find((seat) => seat <= currentLobby.maxPlayers && !occupiedSeats.has(seat));
+        const seatNumber = requestedSeat ?? fallbackSeat;
+        if (!seatNumber) {
+          setError("No open player seats remain.");
+          return;
+        }
+        const newPlayer = createLobbyPlayer(offerPeerId || crypto.randomUUID(), false, seatNumber - 1);
         const next = {
           ...currentLobby,
-          players: [...currentLobby.players, newPlayer]
+          players: [...currentLobby.players, newPlayer].sort((a, b) => (a.seatNumber ?? 1) - (b.seatNumber ?? 1))
         };
         lobbyRef.current = next;
         setLobby(next);
@@ -490,7 +545,8 @@ export default function App() {
   };
 
   const startLobbyGame = () => {
-    const players = lobby.mode === "local" ? createPlayers(lobby.maxPlayers) : lobby.players.slice(0, lobby.maxPlayers).map(lobbyPlayerToGamePlayer);
+    const sortedLobbyPlayers = [...lobby.players].sort((a, b) => (a.seatNumber ?? 1) - (b.seatNumber ?? 1));
+    const players = lobby.mode === "local" ? createPlayers(lobby.maxPlayers) : sortedLobbyPlayers.slice(0, lobby.maxPlayers).map(lobbyPlayerToGamePlayer);
     if (lobby.mode === "host" && players.length < lobby.maxPlayers) {
       setError("Fill each selected player seat before starting the multiplayer game.");
       return;
@@ -658,9 +714,11 @@ export default function App() {
         peers={peers}
         offerCode={offerCode}
         answerCode={answerCode}
+        joinSeat={joinSeat}
         onClose={() => setModal(undefined)}
         onLocal={disconnect}
         onHost={startHost}
+        onJoinSeat={setJoinSeat}
         onJoin={joinHost}
         onAcceptAnswer={acceptAnswer}
         onDisconnect={disconnect}

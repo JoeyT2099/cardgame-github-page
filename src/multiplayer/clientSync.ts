@@ -12,7 +12,7 @@ export class ClientSync {
     this.onStatus = onStatus;
   }
 
-  async joinFromOffer(offerCode: string) {
+  async joinFromOffer(offerCode: string, desiredSeat: 2 | 3 | 4) {
     const offer = decodeSignalCode(offerCode);
     if (offer.type !== "offer") throw new Error("Expected a host offer code.");
     this.peer = new ManualPeer(
@@ -21,6 +21,7 @@ export class ClientSync {
       (connected) => this.onStatus(connected)
     );
     const answer = await this.peer.acceptOfferAndCreateAnswer(offer);
+    answer.desiredSeat = desiredSeat;
     return encodeSignalCode(answer);
   }
 

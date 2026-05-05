@@ -33,6 +33,7 @@ export class HostSync {
     const answer = decodeSignalCode(answerCode);
     if (answer.type !== "answer") throw new Error("Expected an answer code.");
     await peer.acceptAnswer(answer);
+    return answer.desiredSeat;
   }
 
   broadcast(message: MultiplayerMessage) {

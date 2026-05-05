@@ -23,8 +23,8 @@ export function LobbyPanel({ lobby, localClientId, localPlayerId, onMaxPlayers, 
     isLocal ||
     (isHost && lobby.players.length >= lobby.maxPlayers && lobby.players.every((player) => player.ready || player.isHost));
   const seats = Array.from({ length: lobby.maxPlayers }, (_, index) => {
-    const player = lobby.players[index];
     const seatNumber = index + 1;
+    const player = lobby.players.find((item, playerIndex) => (item.seatNumber ?? playerIndex + 1) === seatNumber);
     const fallbackName = isLocal ? (index === 0 ? self?.name || "Player 1" : `Player ${seatNumber}`) : `Player ${seatNumber}`;
     return {
       seatNumber,

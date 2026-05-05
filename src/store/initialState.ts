@@ -47,7 +47,8 @@ export const createLobbyPlayer = (clientId: string, isHost: boolean, index = 0):
   color: colors[index % colors.length],
   connected: true,
   ready: isHost,
-  isHost
+  isHost,
+  seatNumber: (index + 1) as 1 | 2 | 3 | 4
 });
 
 export const createLobby = (clientId: string, mode: "local" | "host" | "join", maxPlayers: 2 | 3 | 4): LobbyState => ({

@@ -168,6 +168,11 @@ p {
     linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
     #184236;
   background-size: 40px 40px;
+  cursor: grab;
+}
+
+.board-canvas:active {
+  cursor: grabbing;
 }
 
 .board-stage {
@@ -223,6 +228,7 @@ p {
   border: 1px solid #334155;
   border-radius: 8px;
   padding: 16px 20px;
+  pointer-events: none;
 }
 
 .board-object {
@@ -312,7 +318,8 @@ p {
 }
 
 .placed-image-object {
-  background: rgba(15, 23, 42, 0.8);
+  background: transparent;
+  box-shadow: none;
 }
 
 .hands-panel {
