@@ -397,21 +397,24 @@ export default function App() {
     try {
       await hostSync.current?.acceptAnswer(offerPeerId, code);
       setNetworkStatus("connected");
-      setLobby((current) => {
-        if (current.players.length >= current.maxPlayers || current.players.some((player) => player.clientId === offerPeerId)) {
-          return current;
-        }
-        const newPlayer = createLobbyPlayer(offerPeerId || crypto.randomUUID(), false, current.players.length);
+      const currentLobby = lobbyRef.current;
+      if (currentLobby.players.length < currentLobby.maxPlayers && !currentLobby.players.some((player) => player.clientId === offerPeerId)) {
+        const newPlayer = createLobbyPlayer(offerPeerId || crypto.randomUUID(), false, currentLobby.players.length);
         const next = {
-          ...current,
-          players: [...current.players, newPlayer]
+          ...currentLobby,
+          players: [...currentLobby.players, newPlayer]
         };
+        lobbyRef.current = next;
+        setLobby(next);
         hostSync.current?.broadcast({ kind: "LOBBY_SYNC", lobby: next });
         // Inform the joining peer of their assigned playerId so they can identify themselves.
         hostSync.current?.sendToPeer(offerPeerId, { kind: "PLAYER_ASSIGN", playerId: newPlayer.playerId });
-        return next;
-      });
-      hostSync.current?.syncFullState(session, getAssetsForSession(session, assets, deckTemplates), deckTemplates);
+      }
+      hostSync.current?.syncFullState(
+        sessionRef.current,
+        getAssetsForSession(sessionRef.current, assetsRef.current, deckTemplatesRef.current),
+        deckTemplatesRef.current
+      );
     } catch (error) {
       setError(error instanceof Error ? error.message : "Invalid answer code.");
     }

@@ -24,6 +24,7 @@ export class ManualPeer implements PeerTransport {
   peerId: string;
   private connection: RTCPeerConnection;
   private channel?: RTCDataChannel;
+  private pendingMessages: string[] = [];
   private onMessage: (message: unknown, peerId: string) => void;
   private onStatus: (connected: boolean, peerId: string) => void;
 
@@ -46,7 +47,10 @@ export class ManualPeer implements PeerTransport {
 
   private attachChannel(channel: RTCDataChannel) {
     this.channel = channel;
-    channel.onopen = () => this.onStatus(true, this.peerId);
+    channel.onopen = () => {
+      this.onStatus(true, this.peerId);
+      this.flushPendingMessages();
+    };
     channel.onclose = () => this.onStatus(false, this.peerId);
     channel.onerror = () => this.onStatus(false, this.peerId);
     channel.onmessage = (event) => {
@@ -79,14 +83,26 @@ export class ManualPeer implements PeerTransport {
   }
 
   send(message: unknown) {
+    const encoded = JSON.stringify(message);
     if (this.channel?.readyState === "open") {
-      this.channel.send(JSON.stringify(message));
+      this.channel.send(encoded);
+      return;
     }
+    // Host-side lobby/session sync can be produced immediately after an answer is accepted,
+    // before the DataChannel has fired "open". Queue it so joiners receive the first state.
+    this.pendingMessages.push(encoded);
+  }
+
+  private flushPendingMessages() {
+    if (this.channel?.readyState !== "open" || this.pendingMessages.length === 0) return;
+    this.pendingMessages.forEach((message) => this.channel?.send(message));
+    this.pendingMessages = [];
   }
 
   close() {
     this.channel?.close();
     this.connection.close();
+    this.pendingMessages = [];
     this.onStatus(false, this.peerId);
   }
 }
