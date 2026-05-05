@@ -94,6 +94,7 @@ p {
   display: grid;
   grid-template-columns: 260px minmax(540px, 1fr) 270px;
   min-height: 0;
+  overflow: hidden;
 }
 
 .left-panel,
@@ -156,9 +157,26 @@ p {
   background: #0e1116;
 }
 
+.canvas-tabs {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  overflow-x: auto;
+  padding-bottom: 10px;
+}
+
+.canvas-tabs button {
+  flex: 0 0 auto;
+}
+
+.canvas-tabs button.active {
+  background: #0e7490;
+  border-color: #22d3ee;
+}
+
 .board-canvas {
   position: relative;
-  height: calc(100vh - 236px);
+  height: calc(100vh - 328px);
   min-height: 520px;
   overflow: hidden;
   border: 1px solid #374151;
@@ -343,7 +361,8 @@ p {
 .hands-panel {
   border-top: 1px solid #26303d;
   background: #151a21;
-  padding: 10px 14px;
+  padding: 10px 14px 12px;
+  min-width: 0;
 }
 
 .player-tabs,
@@ -355,6 +374,13 @@ p {
   gap: 8px;
   align-items: center;
   flex-wrap: wrap;
+  min-width: 0;
+}
+
+.player-tabs button,
+.modal-actions button,
+.button-row button {
+  white-space: nowrap;
 }
 
 .perspective-select {
@@ -363,6 +389,7 @@ p {
   gap: 8px;
   margin-left: auto;
   white-space: nowrap;
+  min-width: 0;
 }
 
 .perspective-select select {
@@ -379,15 +406,16 @@ p {
   display: grid;
   gap: 8px;
   margin-top: 10px;
-  max-height: 142px;
+  max-height: 192px;
   overflow-y: auto;
 }
 
 .hand-row {
   display: grid;
-  grid-template-columns: 110px 1fr;
+  grid-template-columns: minmax(120px, 150px) minmax(0, 1fr);
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .hand-name {
@@ -423,8 +451,8 @@ p {
 }
 
 .hand-card-back {
-  width: 36px;
-  height: 50px;
+  width: 48px;
+  height: 66px;
   flex: 0 0 auto;
   border-radius: 4px;
   background: repeating-linear-gradient(45deg, #334155, #334155 6px, #475569 6px, #475569 12px);
@@ -435,6 +463,7 @@ p {
 .hand-hidden-count {
   font-size: 12px;
   white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .hand-empty-hint {
@@ -477,11 +506,14 @@ p {
   display: flex;
   gap: 8px;
   overflow-x: auto;
+  align-items: center;
+  min-width: 0;
+  padding-bottom: 4px;
 }
 
 .hand-card {
-  width: 58px;
-  height: 80px;
+  width: 72px;
+  height: 100px;
   padding: 2px;
   flex: 0 0 auto;
 }

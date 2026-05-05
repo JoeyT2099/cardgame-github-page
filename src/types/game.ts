@@ -11,6 +11,11 @@ export interface Layer {
   order: number;
 }
 
+export interface CanvasTab {
+  id: string;
+  name: string;
+}
+
 export interface BoardObjectBase {
   id: string;
   type: BoardObjectType;
@@ -21,6 +26,7 @@ export interface BoardObjectBase {
   width: number;
   height: number;
   layerId?: string;
+  canvasId?: string;
 }
 
 export interface DeckInstance extends Omit<BoardObjectBase, "type"> {
@@ -75,6 +81,7 @@ export interface GameSession {
   tokenInstances: TokenInstance[];
   placedImageInstances: PlacedImageInstance[];
   layers: Layer[];
+  canvasTabs: CanvasTab[];
   selectedObjectId?: string;
   lastUpdatedAt: number;
 }

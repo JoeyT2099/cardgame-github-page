@@ -54,6 +54,7 @@ export interface MovePayload {
   objectType: "deck" | "card" | "discard" | "token" | "image";
   x: number;
   y: number;
+  canvasId?: string;
 }
 
 export interface RotatePayload {

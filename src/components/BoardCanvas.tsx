@@ -1,6 +1,6 @@
 import React from "react";
 import type { AssetTemplate } from "../types/assets";
-import type { GameSession, Layer } from "../types/game";
+import type { CanvasTab, GameSession, Layer } from "../types/game";
 import { CardView } from "./CardView";
 import { DeckInstanceView } from "./DeckInstanceView";
 import { DiscardPileView } from "./DiscardPileView";
@@ -12,8 +12,11 @@ interface BoardCanvasProps {
   assets: AssetTemplate[];
   perspectiveRotation: number;
   zoom: number;
+  canvasTabs: CanvasTab[];
+  activeCanvasId: string;
   activeLayerId: string;
   onZoom: (zoom: number) => void;
+  onCanvas: (canvasId: string) => void;
   onSelect: (objectId?: string) => void;
   onMove: (objectType: "deck" | "card" | "discard" | "token" | "image", objectId: string, x: number, y: number) => void;
   onDrawDeck: (deckInstanceId: string) => void;
@@ -27,11 +30,18 @@ const effectiveZIndex = (layers: Layer[], layerId?: string, zIndex = 0): number 
   return (layer?.order ?? 0) * 1000 + zIndex;
 };
 
-export function BoardCanvas({ session, assets, perspectiveRotation, zoom, activeLayerId, onZoom, onSelect, onMove, onDrawDeck }: BoardCanvasProps) {
+export function BoardCanvas({ session, assets, perspectiveRotation, zoom, canvasTabs, activeCanvasId, activeLayerId, onZoom, onCanvas, onSelect, onMove, onDrawDeck }: BoardCanvasProps) {
   const assetMap = React.useMemo(() => new Map(assets.map((asset) => [asset.id, asset])), [assets]);
   const boardAsset = session.boardAssetId ? assetMap.get(session.boardAssetId) : undefined;
   const { layers } = session;
-  const hasBoardContent = Boolean(boardAsset) || session.placedImageInstances.length > 0 || session.deckInstances.length > 0 || session.cardInstances.some((card) => card.location === "board") || session.tokenInstances.length > 0 || session.discardPiles.length > 0;
+  const isOnActiveCanvas = (canvasId?: string) => !canvasId || canvasId === activeCanvasId;
+  const hasBoardContent =
+    Boolean(boardAsset) ||
+    session.placedImageInstances.some((image) => isOnActiveCanvas(image.canvasId)) ||
+    session.deckInstances.some((deck) => isOnActiveCanvas(deck.canvasId)) ||
+    session.cardInstances.some((card) => card.location === "board" && isOnActiveCanvas(card.canvasId)) ||
+    session.tokenInstances.some((token) => isOnActiveCanvas(token.canvasId)) ||
+    session.discardPiles.some((pile) => isOnActiveCanvas(pile.canvasId));
   const [pan, setPan] = React.useState({ x: 0, y: 0 });
   const panStart = React.useRef<{ pointerX: number; pointerY: number; x: number; y: number; moved: boolean } | undefined>(undefined);
 
@@ -70,6 +80,13 @@ export function BoardCanvas({ session, assets, perspectiveRotation, zoom, active
 
   return (
     <main className="board-wrap">
+      <div className="canvas-tabs" onPointerDown={(event) => event.stopPropagation()}>
+        {canvasTabs.map((canvas) => (
+          <button key={canvas.id} className={canvas.id === activeCanvasId ? "active" : ""} onClick={() => onCanvas(canvas.id)}>
+            {canvas.name}
+          </button>
+        ))}
+      </div>
       <div className="board-canvas" onPointerDown={beginPan} onPointerMove={movePan} onPointerUp={endPan} onPointerCancel={endPan}>
         <div className="board-zoom-controls" onPointerDown={(event) => event.stopPropagation()}>
           <button onClick={() => onZoom(Math.max(0.4, Number((zoom - 0.1).toFixed(2))))}>-</button>
@@ -80,7 +97,7 @@ export function BoardCanvas({ session, assets, perspectiveRotation, zoom, active
         <div className="board-stage" style={{ transform: `translate(${pan.x}px, ${pan.y}px) rotate(${perspectiveRotation}deg) scale(${zoom})` }} onPointerDown={beginPan} onPointerMove={movePan} onPointerUp={endPan} onPointerCancel={endPan}>
         {boardAsset ? <img className="board-background" src={boardAsset.imageDataUrl} alt={boardAsset.name} /> : !hasBoardContent && <div className="empty-board">Place a board image or start placing pieces.</div>}
         {session.placedImageInstances
-          .filter((image) => !isHidden(image.layerId))
+          .filter((image) => isOnActiveCanvas(image.canvasId) && !isHidden(image.layerId))
           .map((image) => (
             <PlacedImageView
               key={image.id}
@@ -95,7 +112,7 @@ export function BoardCanvas({ session, assets, perspectiveRotation, zoom, active
             />
           ))}
         {session.deckInstances
-          .filter((deck) => !isHidden(deck.layerId))
+          .filter((deck) => isOnActiveCanvas(deck.canvasId) && !isHidden(deck.layerId))
           .map((deck) => (
             <DeckInstanceView
               key={deck.id}
@@ -110,7 +127,7 @@ export function BoardCanvas({ session, assets, perspectiveRotation, zoom, active
             />
           ))}
         {session.discardPiles
-          .filter((pile) => !isHidden(pile.layerId))
+          .filter((pile) => isOnActiveCanvas(pile.canvasId) && !isHidden(pile.layerId))
           .map((pile) => (
             <DiscardPileView
               key={pile.id}
@@ -124,7 +141,7 @@ export function BoardCanvas({ session, assets, perspectiveRotation, zoom, active
             />
           ))}
         {session.cardInstances
-          .filter((card) => card.location === "board" && !isHidden(card.layerId))
+          .filter((card) => card.location === "board" && isOnActiveCanvas(card.canvasId) && !isHidden(card.layerId))
           .map((card) => (
             <CardView
               key={card.id}
@@ -140,7 +157,7 @@ export function BoardCanvas({ session, assets, perspectiveRotation, zoom, active
             />
           ))}
         {session.tokenInstances
-          .filter((token) => !isHidden(token.layerId))
+          .filter((token) => isOnActiveCanvas(token.canvasId) && !isHidden(token.layerId))
           .map((token) => (
             <TokenView
               key={token.id}

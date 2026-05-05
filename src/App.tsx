@@ -13,7 +13,7 @@ import { SessionManagerModal } from "./components/SessionManagerModal";
 import { Toolbar } from "./components/Toolbar";
 import { createAction, type GameAction } from "./store/actions";
 import { gameReducer, resolveDrawAction } from "./store/gameReducer";
-import { createEmptySession, createLobby, createLobbyPlayer, createPlayers, LAYER_IDS } from "./store/initialState";
+import { createCanvasTabs, createEmptySession, createLobby, createLobbyPlayer, createPlayers, LAYER_IDS, MAIN_CANVAS_ID } from "./store/initialState";
 import { findBoardObject } from "./store/selectors";
 import type { AssetCategory, AssetTemplate, DeckTemplate } from "./types/assets";
 import type { AnyBoardObject, GameSession, SavedGameRecord, SessionBundle } from "./types/game";
@@ -119,6 +119,7 @@ export default function App() {
   const lastHostRefreshAtRef = React.useRef(0);
   const importInputRef = React.useRef<HTMLInputElement>(null);
   const [activeLayerId, setActiveLayerId] = React.useState<string>(LAYER_IDS.cards);
+  const [activeCanvasId, setActiveCanvasId] = React.useState<string>(MAIN_CANVAS_ID);
   const [boardZoom, setBoardZoom] = React.useState(1);
   const [perspectivePlayerId, setPerspectivePlayerId] = React.useState<string>(session.activePlayerId);
 
@@ -129,6 +130,12 @@ export default function App() {
       setActiveLayerId(topLayer.id);
     }
   }, [session.layers, activeLayerId]);
+
+  React.useEffect(() => {
+    if (session.canvasTabs.length > 0 && !session.canvasTabs.find((canvas) => canvas.id === activeCanvasId)) {
+      setActiveCanvasId(session.canvasTabs[0].id);
+    }
+  }, [session.canvasTabs, activeCanvasId]);
 
   React.useEffect(() => {
     if (!session.players.find((player) => player.id === perspectivePlayerId)) {
@@ -247,10 +254,10 @@ export default function App() {
 
   React.useEffect(() => {
     const selected = findBoardObject(session, session.selectedObjectId);
-    if (selected?.layerId && selected.layerId !== activeLayerId) {
+    if ((selected?.layerId && selected.layerId !== activeLayerId) || (selected?.canvasId && selected.canvasId !== activeCanvasId)) {
       applyAction(createAction("SELECT_OBJECT", { objectId: undefined }, clientId));
     }
-  }, [activeLayerId, session.selectedObjectId, session.deckInstances, session.cardInstances, session.discardPiles, session.tokenInstances, session.placedImageInstances]);
+  }, [activeLayerId, activeCanvasId, session.selectedObjectId, session.deckInstances, session.cardInstances, session.discardPiles, session.tokenInstances, session.placedImageInstances]);
 
   const applyHostAction = (action: GameAction) => {
     // Validate MOVE_CARD_TO_BOARD: only the player who owns the card may place it from their hand.
@@ -330,33 +337,33 @@ export default function App() {
   const placeBoardImage = (assetId: string, width = 720, height = 420) => {
     const asset = assets.find((item) => item.id === assetId);
     if (asset) addAssets([{ ...asset, sharedInSession: true }]);
-    applyAction(createAction("PLACE_IMAGE", { id: crypto.randomUUID(), assetId, x: 120, y: 90, width, height, layerId: LAYER_IDS.board }, clientId));
+    applyAction(createAction("PLACE_IMAGE", { id: crypto.randomUUID(), assetId, x: 120, y: 90, width, height, layerId: LAYER_IDS.board, canvasId: activeCanvasId }, clientId));
     setModal(undefined);
   };
 
   const placeImage = (assetId: string, width = 180, height = 140) => {
     const asset = assets.find((item) => item.id === assetId);
     if (asset) addAssets([{ ...asset, sharedInSession: true }]);
-    applyAction(createAction("PLACE_IMAGE", { id: crypto.randomUUID(), assetId, x: 180, y: 150, width, height, layerId: activeLayerId }, clientId));
+    applyAction(createAction("PLACE_IMAGE", { id: crypto.randomUUID(), assetId, x: 180, y: 150, width, height, layerId: activeLayerId, canvasId: activeCanvasId }, clientId));
     setModal(undefined);
   };
 
   const createTokenFromAsset = (assetId: string, width = 64, height = 64) => {
     const asset = assets.find((item) => item.id === assetId);
     if (asset) addAssets([{ ...asset, sharedInSession: true }]);
-    applyAction(createAction("CREATE_TOKEN", { id: crypto.randomUUID(), assetId, x: 220, y: 180, width, height, layerId: LAYER_IDS.tokens }, clientId));
+    applyAction(createAction("CREATE_TOKEN", { id: crypto.randomUUID(), assetId, x: 220, y: 180, width, height, layerId: LAYER_IDS.tokens, canvasId: activeCanvasId }, clientId));
     setModal(undefined);
   };
 
   const createGenericToken = (width = 64, height = 64) => {
-    applyAction(createAction("CREATE_TOKEN", { id: crypto.randomUUID(), label: "1", color: "hsl(45 93% 60%)", x: 240, y: 220, width, height, layerId: LAYER_IDS.tokens }, clientId));
+    applyAction(createAction("CREATE_TOKEN", { id: crypto.randomUUID(), label: "1", color: "hsl(45 93% 60%)", x: 240, y: 220, width, height, layerId: LAYER_IDS.tokens, canvasId: activeCanvasId }, clientId));
     setModal(undefined);
   };
 
   const addDeckInstance = (deck: DeckTemplate) => {
     const deckAssetIds = new Set([...deck.cardAssetIds, ...(deck.defaultBackAssetId ? [deck.defaultBackAssetId] : []), ...Object.values(deck.cardBackAssetIds ?? {})]);
     addAssets(assets.filter((asset) => deckAssetIds.has(asset.id)).map((asset) => ({ ...asset, sharedInSession: true })));
-    applyAction(createAction("ADD_DECK_INSTANCE", { id: crypto.randomUUID(), deckTemplateId: deck.id, name: deck.name, cardAssetIds: deck.cardAssetIds, x: 120, y: 120, backAssetId: deck.defaultBackAssetId, layerId: activeLayerId }, clientId));
+    applyAction(createAction("ADD_DECK_INSTANCE", { id: crypto.randomUUID(), deckTemplateId: deck.id, name: deck.name, cardAssetIds: deck.cardAssetIds, x: 120, y: 120, backAssetId: deck.defaultBackAssetId, layerId: activeLayerId, canvasId: activeCanvasId }, clientId));
     setModal(undefined);
   };
 
@@ -479,7 +486,7 @@ export default function App() {
   };
 
   const moveObject = (objectType: AnyBoardObject["type"], objectId: string, x: number, y: number) =>
-    applyAction(createAction("MOVE_OBJECT", { objectType, objectId, x, y }, clientId));
+    applyAction(createAction("MOVE_OBJECT", { objectType, objectId, x, y, canvasId: activeCanvasId }, clientId));
 
   const rotateObject = (object: AnyBoardObject, rotation: number) =>
     applyAction(createAction("ROTATE_OBJECT", { objectType: object.type, objectId: object.id, rotation }, clientId));
@@ -653,17 +660,34 @@ export default function App() {
       return;
     }
     const nextPlayerIds = new Set(players.map((player) => player.id));
+    const canvasTabs = createCanvasTabs(players);
+    const existingPlayerCanvasIds = session.canvasTabs.filter((canvas) => canvas.id !== MAIN_CANVAS_ID).map((canvas) => canvas.id);
+    const nextPlayerCanvasIds = canvasTabs.filter((canvas) => canvas.id !== MAIN_CANVAS_ID).map((canvas) => canvas.id);
+    const mapCanvasId = (canvasId?: string) => {
+      if (!canvasId || canvasId === MAIN_CANVAS_ID) return MAIN_CANVAS_ID;
+      const index = existingPlayerCanvasIds.indexOf(canvasId);
+      return index >= 0 ? nextPlayerCanvasIds[index] ?? MAIN_CANVAS_ID : MAIN_CANVAS_ID;
+    };
     const nextSession: GameSession = {
       ...session,
       name: session.name || "Multiplayer Session",
       players,
+      canvasTabs,
       activePlayerId: players[0]?.id ?? session.activePlayerId,
       selectedObjectId: undefined,
       cardInstances: session.cardInstances.map((card) =>
-        card.ownerPlayerId && !nextPlayerIds.has(card.ownerPlayerId)
-          ? { ...card, ownerPlayerId: undefined, location: "board" as const }
-          : card
+        ({
+          ...card,
+          canvasId: mapCanvasId(card.canvasId),
+          ...(card.ownerPlayerId && !nextPlayerIds.has(card.ownerPlayerId)
+            ? { ownerPlayerId: undefined, location: "board" as const }
+            : {})
+        })
       ),
+      deckInstances: session.deckInstances.map((deck) => ({ ...deck, canvasId: mapCanvasId(deck.canvasId) })),
+      discardPiles: session.discardPiles.map((pile) => ({ ...pile, canvasId: mapCanvasId(pile.canvasId) })),
+      tokenInstances: session.tokenInstances.map((token) => ({ ...token, canvasId: mapCanvasId(token.canvasId) })),
+      placedImageInstances: session.placedImageInstances.map((image) => ({ ...image, canvasId: mapCanvasId(image.canvasId) })),
       lastUpdatedAt: Date.now()
     };
     const nextLobby = { ...lobby, status: "in-game" as const };
@@ -692,7 +716,7 @@ export default function App() {
         onSetBoard={() => setModal("setBoard")}
         onCreateDeck={() => setModal("createDeck")}
         onAddDeck={() => setModal("addDeck")}
-        onAddDiscard={() => applyAction(createAction("CREATE_DISCARD_PILE", { id: crypto.randomUUID(), name: "Discard", x: 260, y: 160, layerId: activeLayerId }, clientId))}
+        onAddDiscard={() => applyAction(createAction("CREATE_DISCARD_PILE", { id: crypto.randomUUID(), name: "Discard", x: 260, y: 160, layerId: activeLayerId, canvasId: activeCanvasId }, clientId))}
         onAddToken={() => setModal("token")}
         onPlaceImage={() => setModal("placeImage")}
         onOpenMultiplayer={() => setModal("multiplayer")}
@@ -748,7 +772,20 @@ export default function App() {
             </div>
           </section>
         </aside>
-        <BoardCanvas session={session} assets={assets} perspectiveRotation={getPerspectiveRotation(session, boardPerspectivePlayerId)} zoom={boardZoom} activeLayerId={activeLayerId} onZoom={setBoardZoom} onSelect={(objectId) => applyAction(createAction("SELECT_OBJECT", { objectId }, clientId))} onMove={moveObject} onDrawDeck={drawDeck} />
+        <BoardCanvas
+          session={session}
+          assets={assets}
+          perspectiveRotation={getPerspectiveRotation(session, boardPerspectivePlayerId)}
+          zoom={boardZoom}
+          canvasTabs={session.canvasTabs}
+          activeCanvasId={activeCanvasId}
+          activeLayerId={activeLayerId}
+          onZoom={setBoardZoom}
+          onCanvas={setActiveCanvasId}
+          onSelect={(objectId) => applyAction(createAction("SELECT_OBJECT", { objectId }, clientId))}
+          onMove={moveObject}
+          onDrawDeck={drawDeck}
+        />
         <ObjectInspector
           session={session}
           assets={assets}
@@ -761,7 +798,7 @@ export default function App() {
           onBack={(object) => applyAction(createAction("SEND_TO_BACK", { objectType: object.type, objectId: object.id }, clientId))}
           onFlipCard={(cardId) => applyAction(createAction("FLIP_CARD", { cardId }, clientId))}
           onMoveCardToHand={(cardId, playerId) => applyAction(createAction("MOVE_CARD_TO_HAND", { cardId, playerId }, clientId))}
-          onMoveCardToBoard={(cardId, x, y) => applyAction(createAction("MOVE_CARD_TO_BOARD", { cardId, x, y }, clientId))}
+          onMoveCardToBoard={(cardId, x, y) => applyAction(createAction("MOVE_CARD_TO_BOARD", { cardId, x, y, canvasId: activeCanvasId }, clientId))}
           onMoveCardToDiscard={(cardId, discardPileId) => applyAction(createAction("MOVE_CARD_TO_DISCARD", { cardId, discardPileId }, clientId))}
           onDrawDeck={drawDeck}
           onShuffleDeck={shuffleDeck}
@@ -778,7 +815,7 @@ export default function App() {
         perspectivePlayerId={perspectivePlayerId}
         onSetActivePlayer={(playerId) => applyAction(createAction("SET_ACTIVE_PLAYER", { playerId }, clientId))}
         onSetPerspectivePlayer={setPerspectivePlayerId}
-        onMoveCardToBoard={(cardId) => applyAction(createAction("MOVE_CARD_TO_BOARD", { cardId, x: 340, y: 240 }, clientId))}
+        onMoveCardToBoard={(cardId) => applyAction(createAction("MOVE_CARD_TO_BOARD", { cardId, x: 340, y: 240, canvasId: activeCanvasId }, clientId))}
       />
       {(modal === "assets" || modal === "setBoard" || modal === "placeImage" || modal === "token") && (
         <AssetLibraryModal

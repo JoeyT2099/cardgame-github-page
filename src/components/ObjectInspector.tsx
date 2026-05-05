@@ -54,6 +54,7 @@ export function ObjectInspector(props: ObjectInspectorProps) {
   const [rotationInput, setRotationInput] = React.useState(0);
   const [widthInput, setWidthInput] = React.useState(0);
   const [heightInput, setHeightInput] = React.useState(0);
+  const [previewAsset, setPreviewAsset] = React.useState<AssetTemplate>();
   const assetMap = React.useMemo(() => new Map(props.assets.map((asset) => [asset.id, asset])), [props.assets]);
 
   React.useEffect(() => {
@@ -61,6 +62,12 @@ export function ObjectInspector(props: ObjectInspectorProps) {
     setWidthInput(object?.width ?? 0);
     setHeightInput(object?.height ?? 0);
   }, [object?.id, object?.rotation, object?.width, object?.height]);
+
+  const discardPreview = previewAsset ? (
+    <div className="hand-card-preview" aria-hidden="true">
+      <img src={previewAsset.imageDataUrl} alt="" />
+    </div>
+  ) : null;
 
   if (!object) {
     return (
@@ -175,7 +182,17 @@ export function ObjectInspector(props: ObjectInspectorProps) {
               return (
                 <div className="discard-card-row" key={cardId}>
                   <div className="discard-card-thumb">
-                    {asset ? <img src={asset.imageDataUrl} alt={asset.name} /> : "?"}
+                    {asset ? (
+                      <img
+                        src={asset.imageDataUrl}
+                        alt={asset.name}
+                        onMouseEnter={() => setPreviewAsset(asset)}
+                        onMouseLeave={() => setPreviewAsset(undefined)}
+                        onFocus={() => setPreviewAsset(asset)}
+                        onBlur={() => setPreviewAsset(undefined)}
+                        tabIndex={0}
+                      />
+                    ) : "?"}
                   </div>
                   <span title={asset?.name ?? "Missing card"}>{asset?.name ?? "Missing card"}</span>
                   <button onClick={() => props.onMoveCardToBoard(cardId, boardX, boardY)}>Board</button>
@@ -187,6 +204,7 @@ export function ObjectInspector(props: ObjectInspectorProps) {
               );
             })}
           </div>
+          {discardPreview}
         </div>
       )}
     </aside>

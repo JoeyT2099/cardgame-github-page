@@ -9,6 +9,8 @@ export const LAYER_IDS = {
   tokens: "layer-tokens"
 } as const;
 
+export const MAIN_CANVAS_ID = "canvas-main";
+
 export const DEFAULT_LAYERS: Layer[] = [
   { id: LAYER_IDS.board, name: "Board", visible: true, locked: false, order: 0 },
   { id: LAYER_IDS.cards, name: "Cards", visible: true, locked: false, order: 1 },
@@ -23,6 +25,11 @@ export const createPlayers = (count: 2 | 3 | 4): Player[] =>
     handCardInstanceIds: []
   }));
 
+export const createCanvasTabs = (players: Player[]) => [
+  { id: MAIN_CANVAS_ID, name: "Main Board" },
+  ...players.map((player) => ({ id: `canvas-${player.id}`, name: player.name }))
+];
+
 export const createEmptySession = (count: 2 | 3 | 4 = 2, name = "Untitled Session"): GameSession => {
   const players = createPlayers(count);
   return {
@@ -36,6 +43,7 @@ export const createEmptySession = (count: 2 | 3 | 4 = 2, name = "Untitled Sessio
     tokenInstances: [],
     placedImageInstances: [],
     layers: DEFAULT_LAYERS.map((layer) => ({ ...layer })),
+    canvasTabs: createCanvasTabs(players),
     lastUpdatedAt: Date.now()
   };
 };
