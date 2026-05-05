@@ -91,8 +91,7 @@ export function LobbyPanel({ lobby, localClientId, onMaxPlayers, onName, onReady
               <strong>
                 Player {seat.seatNumber}
                 {seat.isYou && <span className="you-badge">You</span>}
-                {seat.isHostSeat && !seat.isYou && <span className="host-badge">Host</span>}
-                {seat.isHostSeat && seat.isYou && <span className="host-badge">Host</span>}
+                {seat.isHostSeat && <span className="host-badge">Host</span>}
               </strong>
               <em>{seat.name}</em>
             </div>
