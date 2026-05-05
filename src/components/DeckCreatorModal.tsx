@@ -142,7 +142,7 @@ export function DeckCreatorModal({ assets, deckTemplates, onClose, onUpload, onS
         <div className="deck-editor-layout">
           <aside className="deck-template-list">
             <button className={editingDeckId === "new" ? "active" : ""} onClick={() => setEditingDeckId("new")}>New Deck</button>
-            <button type="button" className="deck-list-action" onClick={onImport}>↑ Import Deck</button>
+            <button type="button" className="deck-list-action" aria-label="Import Deck" onClick={onImport}>↑ Import Deck</button>
             {sortedDecks.length > 0 && <hr className="deck-list-divider" />}
             {sortedDecks.map((deck) => (
               <button key={deck.id} className={editingDeckId === deck.id ? "active" : ""} onClick={() => setEditingDeckId(deck.id)}>
