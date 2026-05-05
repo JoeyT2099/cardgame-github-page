@@ -8,12 +8,14 @@ interface MultiplayerPanelProps {
   status: NetworkStatus;
   lobby: LobbyState;
   peers: PeerConnectionStatus[];
-  offerCode: string;
+  pendingInvites: { peerId: string; offerCode: string; createdAt: number }[];
+  selectedInvitePeerId: string;
   answerCode: string;
   joinSeat: 2 | 3 | 4;
   onClose: () => void;
   onLocal: () => void;
   onHost: () => void;
+  onSelectInvite: (peerId: string) => void;
   onJoinSeat: (seat: 2 | 3 | 4) => void;
   onJoin: (offerCode: string, seat: 2 | 3 | 4) => void;
   onAcceptAnswer: (answerCode: string) => void;
@@ -47,6 +49,7 @@ export function MultiplayerPanel(props: MultiplayerPanelProps) {
   const openJoin = () => {
     setScreen("join");
   };
+  const selectedInvite = props.pendingInvites.find((invite) => invite.peerId === props.selectedInvitePeerId) ?? props.pendingInvites[0];
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true">
@@ -85,17 +88,29 @@ export function MultiplayerPanel(props: MultiplayerPanelProps) {
               <p>This browser is Player 1. Create one offer code per joining player, then accept that player's answer code.</p>
             </div>
             <div className="signal-block">
-              <button onClick={props.onHost}>{props.offerCode ? "Create Another Offer" : "Create Host Offer"}</button>
+              <button onClick={props.onHost}>{props.pendingInvites.length > 0 ? "Create Another Offer" : "Create Host Offer"}</button>
+              {props.pendingInvites.length > 0 && (
+                <label>
+                  Pending Offer
+                  <select value={selectedInvite?.peerId ?? ""} onChange={(event) => props.onSelectInvite(event.target.value)}>
+                    {props.pendingInvites.map((invite, index) => (
+                      <option key={invite.peerId} value={invite.peerId}>
+                        Offer {index + 1} - {new Date(invite.createdAt).toLocaleTimeString()}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <label>
                 1. Send this offer code to the joining player
-                <textarea readOnly value={props.offerCode} placeholder="Host offer code appears here" />
+                <textarea readOnly value={selectedInvite?.offerCode ?? ""} placeholder="Host offer code appears here" />
               </label>
-              <button onClick={() => copy(props.offerCode)} disabled={!props.offerCode}>Copy Offer</button>
+              <button onClick={() => copy(selectedInvite?.offerCode ?? "")} disabled={!selectedInvite}>Copy Offer</button>
               <label>
                 2. Paste the answer code they send back
                 <textarea value={answerInput} onChange={(event) => setAnswerInput(event.target.value)} placeholder="Paste joiner's answer code here" />
               </label>
-              <button onClick={() => props.onAcceptAnswer(answerInput)} disabled={!answerInput.trim()}>Accept Answer</button>
+              <button onClick={() => props.onAcceptAnswer(answerInput)} disabled={!selectedInvite || !answerInput.trim()}>Accept Answer</button>
             </div>
             <div className="connected-list">
               {props.peers.map((peer) => (

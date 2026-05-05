@@ -30,6 +30,7 @@ import { createSessionBundle, mergeById, parseSessionBundle, stringifySessionBun
 import { getSavedSessions, loadCurrentSession, saveCurrentSession, saveNamedSession, deleteSavedSession, type SavedSessionRecord } from "./storage/sessionStorage";
 
 type ModalName = "assets" | "setBoard" | "createDeck" | "addDeck" | "placeImage" | "token" | "sessions" | "multiplayer" | undefined;
+type PendingInvite = { peerId: string; offerCode: string; createdAt: number };
 
 const CLIENT_ID_KEY = "board-game-sandbox.clientId";
 const ASSIGNED_PLAYER_KEY = "board-game-sandbox.assignedPlayerId";
@@ -104,8 +105,8 @@ export default function App() {
   const [mode, setMode] = React.useState<AppMode>("local");
   const [networkStatus, setNetworkStatus] = React.useState<NetworkStatus>("idle");
   const [lobby, setLobby] = React.useState<LobbyState>(() => createLobby(clientId, "local", 2));
-  const [offerCode, setOfferCode] = React.useState("");
-  const [offerPeerId, setOfferPeerId] = React.useState("");
+  const [pendingInvites, setPendingInvites] = React.useState<PendingInvite[]>([]);
+  const [selectedInvitePeerId, setSelectedInvitePeerId] = React.useState("");
   const [answerCode, setAnswerCode] = React.useState("");
   const [peers, setPeers] = React.useState<PeerConnectionStatus[]>([]);
   // In multiplayer (join) mode, the host sends us our assigned playerId via PLAYER_ASSIGN.
@@ -570,8 +571,9 @@ export default function App() {
       const host = hostSync.current;
       if (!host) throw new Error("Host transport was not created.");
       const invite = await host.createInvite();
-      setOfferCode(invite.offerCode);
-      setOfferPeerId(invite.peerId);
+      const pendingInvite = { ...invite, createdAt: Date.now() };
+      setPendingInvites((current) => [...current, pendingInvite]);
+      setSelectedInvitePeerId(invite.peerId);
     } catch {
       setNetworkStatus("error");
       setError("Multiplayer connection failed.");
@@ -596,10 +598,15 @@ export default function App() {
 
   const acceptAnswer = async (code: string) => {
     try {
-      const desiredSeat = await hostSync.current?.acceptAnswer(offerPeerId, code);
+      const invitePeerId = selectedInvitePeerId || pendingInvites[0]?.peerId;
+      if (!invitePeerId) {
+        setError("Create or select a pending host offer before accepting an answer.");
+        return;
+      }
+      const desiredSeat = await hostSync.current?.acceptAnswer(invitePeerId, code);
       setNetworkStatus("connected");
       const currentLobby = lobbyRef.current;
-      if (currentLobby.players.length < currentLobby.maxPlayers && !currentLobby.players.some((player) => player.clientId === offerPeerId)) {
+      if (currentLobby.players.length < currentLobby.maxPlayers && !currentLobby.players.some((player) => player.clientId === invitePeerId)) {
         const occupiedSeats = new Set(currentLobby.players.map((player, index) => player.seatNumber ?? ((index + 1) as 1 | 2 | 3 | 4)));
         const requestedSeat =
           desiredSeat && desiredSeat <= currentLobby.maxPlayers && !occupiedSeats.has(desiredSeat)
@@ -611,7 +618,7 @@ export default function App() {
           setError("No open player seats remain.");
           return;
         }
-        const newPlayer = createLobbyPlayer(offerPeerId || crypto.randomUUID(), false, seatNumber - 1);
+        const newPlayer = createLobbyPlayer(invitePeerId, false, seatNumber - 1);
         const next = {
           ...currentLobby,
           players: [...currentLobby.players, newPlayer].sort((a, b) => (a.seatNumber ?? 1) - (b.seatNumber ?? 1))
@@ -620,8 +627,14 @@ export default function App() {
         setLobby(next);
         hostSync.current?.broadcast({ kind: "LOBBY_SYNC", lobby: next });
         // Inform the joining peer of their assigned playerId so they can identify themselves.
-        hostSync.current?.sendToPeer(offerPeerId, { kind: "PLAYER_ASSIGN", playerId: newPlayer.playerId });
+        hostSync.current?.sendToPeer(invitePeerId, { kind: "PLAYER_ASSIGN", playerId: newPlayer.playerId });
       }
+      setPendingInvites((current) => current.filter((invite) => invite.peerId !== invitePeerId));
+      setSelectedInvitePeerId((current) => {
+        if (current !== invitePeerId) return current;
+        const nextInvite = pendingInvites.find((invite) => invite.peerId !== invitePeerId);
+        return nextInvite?.peerId ?? "";
+      });
       hostSync.current?.syncFullState(
         sessionRef.current,
         getAssetsForSession(sessionRef.current, assetsRef.current, deckTemplatesRef.current),
@@ -639,7 +652,20 @@ export default function App() {
       setError("Fill each selected player seat before starting the multiplayer game.");
       return;
     }
-    const nextSession = { ...createEmptySession(lobby.maxPlayers, "Multiplayer Session"), players, activePlayerId: players[0]?.id ?? session.activePlayerId };
+    const nextPlayerIds = new Set(players.map((player) => player.id));
+    const nextSession: GameSession = {
+      ...session,
+      name: session.name || "Multiplayer Session",
+      players,
+      activePlayerId: players[0]?.id ?? session.activePlayerId,
+      selectedObjectId: undefined,
+      cardInstances: session.cardInstances.map((card) =>
+        card.ownerPlayerId && !nextPlayerIds.has(card.ownerPlayerId)
+          ? { ...card, ownerPlayerId: undefined, location: "board" as const }
+          : card
+      ),
+      lastUpdatedAt: Date.now()
+    };
     const nextLobby = { ...lobby, status: "in-game" as const };
     setLobby(nextLobby);
     dispatchBase(createAction("LOAD_SESSION", nextSession, clientId));
@@ -653,7 +679,8 @@ export default function App() {
     setMyAssignedPlayerId("");
     setNetworkStatus("idle");
     setPeers([]);
-    setOfferCode("");
+    setPendingInvites([]);
+    setSelectedInvitePeerId("");
     setAnswerCode("");
     setLobby(createLobby(clientId, "local", 2));
   };
@@ -792,12 +819,14 @@ export default function App() {
         status={networkStatus}
         lobby={lobby}
         peers={peers}
-        offerCode={offerCode}
+        pendingInvites={pendingInvites}
+        selectedInvitePeerId={selectedInvitePeerId}
         answerCode={answerCode}
         joinSeat={joinSeat}
         onClose={() => setModal(undefined)}
         onLocal={disconnect}
         onHost={startHost}
+        onSelectInvite={setSelectedInvitePeerId}
         onJoinSeat={setJoinSeat}
         onJoin={joinHost}
         onAcceptAnswer={acceptAnswer}
