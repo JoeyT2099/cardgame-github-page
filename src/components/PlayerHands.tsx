@@ -24,8 +24,18 @@ export function PlayerHands({
   onMoveCardToBoard
 }: PlayerHandsProps) {
   const assetMap = React.useMemo(() => new Map(assets.map((asset) => [asset.id, asset])), [assets]);
+  const [previewAsset, setPreviewAsset] = React.useState<AssetTemplate>();
   const viewPlayerId = isMultiplayer ? localPlayerId : perspectivePlayerId;
   const localPlayer = session.players.find((player) => player.id === localPlayerId);
+  const showPreview = (asset?: AssetTemplate) => setPreviewAsset(asset);
+  const hidePreview = () => setPreviewAsset(undefined);
+
+  const renderHandPreview = () =>
+    previewAsset ? (
+      <div className="hand-card-preview" aria-hidden="true">
+        <img src={previewAsset.imageDataUrl} alt="" />
+      </div>
+    ) : null;
 
   if (isMultiplayer) {
     return (
@@ -56,7 +66,16 @@ export function PlayerHands({
                   const card = session.cardInstances.find((item) => item.id === cardId);
                   const asset = card ? assetMap.get(card.assetId) : undefined;
                   return (
-                    <button key={cardId} className="hand-card" title="Place on Board" onClick={() => onMoveCardToBoard(cardId)}>
+                    <button
+                      key={cardId}
+                      className="hand-card"
+                      title="Place on Board"
+                      onClick={() => onMoveCardToBoard(cardId)}
+                      onMouseEnter={() => showPreview(asset)}
+                      onMouseLeave={hidePreview}
+                      onFocus={() => showPreview(asset)}
+                      onBlur={hidePreview}
+                    >
                       {asset ? <img src={asset.imageDataUrl} alt={asset.name} /> : "?"}
                     </button>
                   );
@@ -86,6 +105,7 @@ export function PlayerHands({
               </div>
             ))}
         </div>
+        {renderHandPreview()}
       </section>
     );
   }
@@ -126,7 +146,16 @@ export function PlayerHands({
                   const card = session.cardInstances.find((item) => item.id === cardId);
                   const asset = card ? assetMap.get(card.assetId) : undefined;
                   return (
-                    <button key={cardId} className="hand-card" title="Place on Board" onClick={() => onMoveCardToBoard(cardId)}>
+                    <button
+                      key={cardId}
+                      className="hand-card"
+                      title="Place on Board"
+                      onClick={() => onMoveCardToBoard(cardId)}
+                      onMouseEnter={() => isViewing && showPreview(asset)}
+                      onMouseLeave={hidePreview}
+                      onFocus={() => isViewing && showPreview(asset)}
+                      onBlur={hidePreview}
+                    >
                       {asset ? <img src={asset.imageDataUrl} alt={asset.name} /> : "Missing"}
                     </button>
                   );
@@ -136,6 +165,7 @@ export function PlayerHands({
           );
         })}
       </div>
+      {renderHandPreview()}
     </section>
   );
 }

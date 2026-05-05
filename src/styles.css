@@ -486,6 +486,32 @@ p {
   flex: 0 0 auto;
 }
 
+.hand-card-preview {
+  position: fixed;
+  z-index: 1300;
+  inset: 50% auto auto 50%;
+  width: min(320px, 32vw);
+  max-width: 92vw;
+  aspect-ratio: 2.5 / 3.5;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  padding: 8px;
+  border: 1px solid #38bdf8;
+  border-radius: 8px;
+  background: #0f172a;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.65);
+  pointer-events: none;
+}
+
+.hand-card-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  border-radius: 5px;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;

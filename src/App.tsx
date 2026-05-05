@@ -115,6 +115,7 @@ export default function App() {
   const clientSync = React.useRef<ClientSync | null>(null);
   const modeRef = React.useRef<AppMode>("local");
   const lobbyRef = React.useRef(lobby);
+  const lastHostRefreshAtRef = React.useRef(0);
   const importInputRef = React.useRef<HTMLInputElement>(null);
   const [activeLayerId, setActiveLayerId] = React.useState<string>(LAYER_IDS.cards);
   const [boardZoom, setBoardZoom] = React.useState(1);
@@ -138,6 +139,17 @@ export default function App() {
     sessionRef.current = session;
     saveCurrentSession(session).catch(() => setError("Failed to auto-save current session."));
   }, [session]);
+
+  React.useEffect(() => {
+    if (mode !== "host" || networkStatus !== "connected") return;
+    const interval = window.setInterval(() => {
+      const currentSession = sessionRef.current;
+      if (currentSession.lastUpdatedAt <= lastHostRefreshAtRef.current) return;
+      lastHostRefreshAtRef.current = currentSession.lastUpdatedAt;
+      hostSync.current?.broadcast({ kind: "FULL_STATE_SYNC", session: currentSession, assets: [], deckTemplates: [] });
+    }, 500);
+    return () => window.clearInterval(interval);
+  }, [mode, networkStatus]);
 
   React.useEffect(() => {
     assetsRef.current = assets;
@@ -308,10 +320,6 @@ export default function App() {
       setPerspectivePlayerId(message.playerId);
     }
     if (message.kind === "ERROR") setError(message.message);
-    if (modeRef.current === "host" && peerId) {
-      const required = getAssetsForSession(sessionRef.current, assetsRef.current, deckTemplatesRef.current);
-      hostSync.current?.broadcast({ kind: "FULL_STATE_SYNC", session: sessionRef.current, assets: required, deckTemplates: deckTemplatesRef.current });
-    }
   };
 
   const placeBoardImage = (assetId: string, width = 720, height = 420) => {
