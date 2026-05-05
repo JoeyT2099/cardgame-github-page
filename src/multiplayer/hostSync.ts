@@ -39,6 +39,10 @@ export class HostSync {
     this.peers.forEach((peer) => peer.send(message));
   }
 
+  sendToPeer(peerId: string, message: MultiplayerMessage) {
+    this.peers.get(peerId)?.send(message);
+  }
+
   syncFullState(session: GameSession, assets: AssetTemplate[], deckTemplates: DeckTemplate[]) {
     this.broadcast({ kind: "FULL_STATE_SYNC", session, assets, deckTemplates });
   }

@@ -55,9 +55,12 @@ export default function App() {
   const [offerPeerId, setOfferPeerId] = React.useState("");
   const [answerCode, setAnswerCode] = React.useState("");
   const [peers, setPeers] = React.useState<PeerConnectionStatus[]>([]);
+  // In multiplayer (join) mode, the host sends us our assigned playerId via PLAYER_ASSIGN.
+  const [myAssignedPlayerId, setMyAssignedPlayerId] = React.useState<string>("");
   const hostSync = React.useRef<HostSync | null>(null);
   const clientSync = React.useRef<ClientSync | null>(null);
   const modeRef = React.useRef<AppMode>("local");
+  const lobbyRef = React.useRef(lobby);
   const importInputRef = React.useRef<HTMLInputElement>(null);
   const [activeLayerId, setActiveLayerId] = React.useState<string>(LAYER_IDS.cards);
   const [perspectivePlayerId, setPerspectivePlayerId] = React.useState<string>(session.activePlayerId);
@@ -92,6 +95,21 @@ export default function App() {
   React.useEffect(() => {
     modeRef.current = mode;
   }, [mode]);
+
+  // Keep lobbyRef current so applyHostAction can validate without stale closure.
+  React.useEffect(() => {
+    lobbyRef.current = lobby;
+  }, [lobby]);
+
+  // The playerId for the local client within the current game session.
+  // - Local mode: follows perspectivePlayerId so the user can switch freely for testing.
+  // - Host mode: the host is always players[0] in the lobby.
+  // - Join mode: assigned by the host via PLAYER_ASSIGN message.
+  const localPlayerId = React.useMemo(() => {
+    if (mode === "local") return perspectivePlayerId;
+    if (mode === "host") return lobby.players.find((p) => p.clientId === clientId)?.playerId ?? "";
+    return myAssignedPlayerId;
+  }, [mode, perspectivePlayerId, lobby, myAssignedPlayerId]);
 
   React.useEffect(() => {
     Promise.all([getAssets(), getDeckTemplates(), getSavedSessions(), getSavedGames(), loadCurrentSession()])
@@ -129,6 +147,18 @@ export default function App() {
   };
 
   const applyHostAction = (action: GameAction) => {
+    // Validate MOVE_CARD_TO_BOARD: only the player who owns the card may place it from their hand.
+    if (action.type === "MOVE_CARD_TO_BOARD") {
+      const { cardId } = action.payload as { cardId: string };
+      const requesterLobbyPlayer = lobbyRef.current.players.find((p) => p.clientId === action.clientId);
+      if (requesterLobbyPlayer) {
+        const owner = sessionRef.current.players.find((p) => p.id === requesterLobbyPlayer.playerId);
+        if (!owner || !owner.handCardInstanceIds.includes(cardId)) {
+          // Reject: card not in requester's hand (or player not found)
+          return;
+        }
+      }
+    }
     const resolved = action.type === "DRAW_CARD" ? resolveDrawAction(sessionRef.current, deckTemplatesRef.current, action as GameAction<{ deckInstanceId: string; playerId: string }>) : action;
     if (!resolved) {
       setError("Deck is empty or draw is invalid.");
@@ -162,6 +192,7 @@ export default function App() {
       setMode("join");
       loadSyncedState(message.session, message.assets, message.deckTemplates);
     }
+    if (message.kind === "PLAYER_ASSIGN") setMyAssignedPlayerId(message.playerId);
     if (message.kind === "ERROR") setError(message.message);
     if (modeRef.current === "host" && peerId) {
       const required = getAssetsForSession(sessionRef.current, assetsRef.current, deckTemplatesRef.current);
@@ -370,11 +401,14 @@ export default function App() {
         if (current.players.length >= current.maxPlayers || current.players.some((player) => player.clientId === offerPeerId)) {
           return current;
         }
+        const newPlayer = createLobbyPlayer(offerPeerId || crypto.randomUUID(), false, current.players.length);
         const next = {
           ...current,
-          players: [...current.players, createLobbyPlayer(offerPeerId || crypto.randomUUID(), false, current.players.length)]
+          players: [...current.players, newPlayer]
         };
         hostSync.current?.broadcast({ kind: "LOBBY_SYNC", lobby: next });
+        // Inform the joining peer of their assigned playerId so they can identify themselves.
+        hostSync.current?.sendToPeer(offerPeerId, { kind: "PLAYER_ASSIGN", playerId: newPlayer.playerId });
         return next;
       });
       hostSync.current?.syncFullState(session, getAssetsForSession(session, assets, deckTemplates), deckTemplates);
@@ -434,6 +468,7 @@ export default function App() {
         <aside className="left-panel">
           <LobbyPanel
             lobby={lobby}
+            localClientId={clientId}
             onMaxPlayers={(maxPlayers) => setLobby((current) => ({ ...current, maxPlayers }))}
             onName={(name) => setLobby((current) => ({ ...current, players: current.players.map((player, index) => index === 0 ? { ...player, name } : player) }))}
             onReady={(ready) => setLobby((current) => ({ ...current, players: current.players.map((player, index) => index === 0 ? { ...player, ready } : player) }))}
@@ -491,6 +526,8 @@ export default function App() {
       <PlayerHands
         session={session}
         assets={assets}
+        localPlayerId={localPlayerId}
+        isMultiplayer={mode !== "local"}
         perspectivePlayerId={perspectivePlayerId}
         onSetActivePlayer={(playerId) => applyAction(createAction("SET_ACTIVE_PLAYER", { playerId }, clientId))}
         onSetPerspectivePlayer={setPerspectivePlayerId}
