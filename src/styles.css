@@ -523,6 +523,41 @@ p {
   margin-bottom: 14px;
 }
 
+.modal-subheader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.modal-subheader h3 {
+  margin: 0;
+}
+
+.role-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.role-choice-card {
+  display: grid;
+  gap: 8px;
+  min-height: 128px;
+  padding: 14px;
+  text-align: left;
+  align-content: start;
+}
+
+.role-choice-card strong {
+  font-size: 17px;
+}
+
+.role-choice-card span {
+  color: #b6c2d0;
+  line-height: 1.35;
+}
+
 .library-tools {
   display: grid;
   grid-template-columns: auto minmax(180px, 1fr) 160px;

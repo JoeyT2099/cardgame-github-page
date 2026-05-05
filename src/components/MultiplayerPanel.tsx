@@ -22,12 +22,30 @@ interface MultiplayerPanelProps {
 }
 
 export function MultiplayerPanel(props: MultiplayerPanelProps) {
+  const [screen, setScreen] = React.useState<"choose" | "host" | "join">("choose");
   const [offerInput, setOfferInput] = React.useState("");
   const [answerInput, setAnswerInput] = React.useState("");
+
+  React.useEffect(() => {
+    if (!props.open) return;
+    if (props.mode === "host") setScreen("host");
+    else if (props.mode === "join") setScreen("join");
+    else setScreen("choose");
+  }, [props.open, props.mode]);
+
   if (!props.open) return null;
 
   const copy = async (value: string) => {
     if (value) await navigator.clipboard?.writeText(value);
+  };
+
+  const openHost = () => {
+    setScreen("host");
+    props.onHost();
+  };
+
+  const openJoin = () => {
+    setScreen("join");
   };
 
   return (
@@ -37,71 +55,93 @@ export function MultiplayerPanel(props: MultiplayerPanelProps) {
           <h2>Multiplayer</h2>
           <button onClick={props.onClose}>Close</button>
         </div>
-        <div className="mode-row">
-          <button className={props.mode === "local" ? "active" : ""} onClick={props.onLocal}>Local Mode</button>
-          <button className={props.mode === "host" ? "active" : ""} onClick={props.onHost}>Host Game</button>
-        </div>
         <p>Status: {props.status}</p>
-        <div className="multiplayer-help">
-          <strong>How manual multiplayer works</strong>
-          <p>GitHub Pages cannot run a signaling server, so players exchange one host offer code and one joiner answer code outside the app.</p>
-          <ol>
-            <li>Host clicks Host Game and sends the offer code to the next player.</li>
-            <li>Joiner chooses Player 2, 3, or 4, pastes that offer code under Join Flow, clicks Generate Answer, then sends the answer code back.</li>
-            <li>Host pastes that answer code under Host Flow and clicks Accept Answer.</li>
-            <li>When connected, the host repeats those steps for Player 3 and Player 4 if needed.</li>
-          </ol>
-        </div>
-        <div className="signal-block">
-          <h3>Host Flow</h3>
-          <p className="signal-note">Use this section only on the host computer. This offer code invites one player into the next open seat.</p>
-          <label>
-            1. Send this offer code to the joining player
-          <textarea readOnly value={props.offerCode} placeholder="Host offer code appears here" />
-          </label>
-          <button onClick={() => copy(props.offerCode)}>Copy Offer</button>
-          <label>
-            2. Paste the answer code they send back
-          <textarea value={answerInput} onChange={(event) => setAnswerInput(event.target.value)} placeholder="Paste joiner's answer code here" />
-          </label>
-          <button onClick={() => props.onAcceptAnswer(answerInput)}>Accept Answer</button>
-        </div>
-        <div className="signal-block">
-          <h3>Join Flow</h3>
-          <p className="signal-note">Use this section only on the joining player's computer.</p>
-          <label>
-            Player Seat
-            <select value={props.joinSeat} onChange={(event) => props.onJoinSeat(Number(event.target.value) as 2 | 3 | 4)}>
-              <option value={2}>Player 2</option>
-              <option value={3}>Player 3</option>
-              <option value={4}>Player 4</option>
-            </select>
-          </label>
-          <label>
-            1. Paste the host's offer code here
-          <textarea value={offerInput} onChange={(event) => setOfferInput(event.target.value)} placeholder="Paste host offer code here" />
-          </label>
-          <button onClick={() => props.onJoin(offerInput, props.joinSeat)}>Generate Answer</button>
-          <label>
-            2. Send this answer code back to the host
-          <textarea readOnly value={props.answerCode} placeholder="Answer code appears here" />
-          </label>
-          <button onClick={() => copy(props.answerCode)}>Copy Answer</button>
-        </div>
-        <div className="multiplayer-help compact">
-          <strong>Which player am I?</strong>
-          <p>The host is Player 1. Joiners choose Player 2, 3, or 4 before generating an answer. If that seat is already filled, the host uses the next open seat.</p>
-        </div>
-        <div className="connected-list">
-          {props.peers.map((peer) => (
-            <div className="connected-row" key={peer.peerId}>
-              <strong>{peer.label}</strong>
-              <em>{peer.connected ? "connected" : "waiting"}</em>
+        {screen === "choose" && (
+          <>
+            <div className="multiplayer-help">
+              <strong>Choose this browser's role</strong>
+              <p>Only one browser should host the table. Every other browser should join with an offer code from the host.</p>
             </div>
-          ))}
-        </div>
+            <div className="role-choice-grid">
+              <button className="role-choice-card" onClick={openHost}>
+                <strong>Host Game</strong>
+                <span>Create the table as Player 1 and generate offer codes for other players.</span>
+              </button>
+              <button className="role-choice-card" onClick={openJoin}>
+                <strong>Join Game</strong>
+                <span>Use an offer code from the host and choose Player 2, 3, or 4.</span>
+              </button>
+            </div>
+          </>
+        )}
+        {screen === "host" && (
+          <>
+            <div className="modal-subheader">
+              <button onClick={() => setScreen("choose")}>Back</button>
+              <h3>Host Game</h3>
+            </div>
+            <div className="multiplayer-help">
+              <strong>Host window</strong>
+              <p>This browser is Player 1. Create one offer code per joining player, then accept that player's answer code.</p>
+            </div>
+            <div className="signal-block">
+              <button onClick={props.onHost}>{props.offerCode ? "Create Another Offer" : "Create Host Offer"}</button>
+              <label>
+                1. Send this offer code to the joining player
+                <textarea readOnly value={props.offerCode} placeholder="Host offer code appears here" />
+              </label>
+              <button onClick={() => copy(props.offerCode)} disabled={!props.offerCode}>Copy Offer</button>
+              <label>
+                2. Paste the answer code they send back
+                <textarea value={answerInput} onChange={(event) => setAnswerInput(event.target.value)} placeholder="Paste joiner's answer code here" />
+              </label>
+              <button onClick={() => props.onAcceptAnswer(answerInput)} disabled={!answerInput.trim()}>Accept Answer</button>
+            </div>
+            <div className="connected-list">
+              {props.peers.map((peer) => (
+                <div className="connected-row" key={peer.peerId}>
+                  <strong>{peer.label}</strong>
+                  <em>{peer.connected ? "connected" : "waiting"}</em>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+        {screen === "join" && (
+          <>
+            <div className="modal-subheader">
+              <button onClick={() => setScreen("choose")}>Back</button>
+              <h3>Join Game</h3>
+            </div>
+            <div className="multiplayer-help">
+              <strong>Join window</strong>
+              <p>This browser is not the host. Choose your player seat, paste the host's offer code, then send the generated answer back to the host.</p>
+            </div>
+            <div className="signal-block">
+              <label>
+                Player Seat
+                <select value={props.joinSeat} onChange={(event) => props.onJoinSeat(Number(event.target.value) as 2 | 3 | 4)}>
+                  <option value={2}>Player 2</option>
+                  <option value={3}>Player 3</option>
+                  <option value={4}>Player 4</option>
+                </select>
+              </label>
+              <label>
+                1. Paste the host's offer code here
+                <textarea value={offerInput} onChange={(event) => setOfferInput(event.target.value)} placeholder="Paste host offer code here" />
+              </label>
+              <button onClick={() => props.onJoin(offerInput, props.joinSeat)} disabled={!offerInput.trim()}>Generate Answer</button>
+              <label>
+                2. Send this answer code back to the host
+                <textarea readOnly value={props.answerCode} placeholder="Answer code appears here" />
+              </label>
+              <button onClick={() => copy(props.answerCode)} disabled={!props.answerCode}>Copy Answer</button>
+            </div>
+          </>
+        )}
         <div className="modal-actions">
           <button onClick={props.onSync} disabled={props.mode !== "host"}>Sync Full Session</button>
+          <button onClick={props.onLocal}>Local Mode</button>
           <button className="danger" onClick={props.onDisconnect}>Disconnect</button>
         </div>
         <p className="muted">Manual codes replace a signaling server for this static GitHub Pages MVP. TURN is not included, so some networks may not connect.</p>

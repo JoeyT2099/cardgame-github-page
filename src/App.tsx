@@ -83,6 +83,12 @@ const updateLobbyPlayerById = (
   players: lobby.players.map((player) => (player.playerId === playerId ? { ...player, ...updates } : player))
 });
 
+const getSessionPlayerIdForLobbyPlayer = (session: GameSession, lobbyPlayer?: LobbyState["players"][number]) => {
+  if (!lobbyPlayer) return "";
+  if (session.players.some((player) => player.id === lobbyPlayer.playerId)) return lobbyPlayer.playerId;
+  return session.players[(lobbyPlayer.seatNumber ?? 1) - 1]?.id ?? "";
+};
+
 export default function App() {
   const [assets, setAssets] = React.useState<AssetTemplate[]>([]);
   const [deckTemplates, setDeckTemplates] = React.useState<DeckTemplate[]>([]);
@@ -158,20 +164,27 @@ export default function App() {
     lobbyRef.current = lobby;
   }, [lobby]);
 
+  // The playerId for the local client within the lobby.
+  // This can differ from the current session id until a hosted game is started.
+  const localLobbyPlayerId = React.useMemo(() => {
+    if (mode === "join") return myAssignedPlayerId;
+    return lobby.players.find((p) => p.clientId === clientId)?.playerId ?? "";
+  }, [mode, lobby, myAssignedPlayerId]);
+
   // The playerId for the local client within the current game session.
   // - Local mode: follows perspectivePlayerId so the user can switch freely for testing.
   // - Host mode: the host is always players[0] in the lobby.
   // - Join mode: assigned by the host via PLAYER_ASSIGN message.
   const localPlayerId = React.useMemo(() => {
     if (mode === "local") return perspectivePlayerId;
-    if (mode === "host") return lobby.players.find((p) => p.clientId === clientId)?.playerId ?? "";
-    return myAssignedPlayerId;
-  }, [mode, perspectivePlayerId, lobby, myAssignedPlayerId]);
+    const localLobbyPlayer = lobby.players.find((p) => p.playerId === localLobbyPlayerId);
+    return getSessionPlayerIdForLobbyPlayer(session, localLobbyPlayer);
+  }, [mode, perspectivePlayerId, lobby, localLobbyPlayerId, session.players]);
 
   const boardPerspectivePlayerId = mode === "local" ? perspectivePlayerId : localPlayerId || perspectivePlayerId;
 
   const updateLocalLobbyPlayer = (updates: { name?: string; color?: string; ready?: boolean }) => {
-    const targetPlayerId = localPlayerId || lobby.players.find((player) => player.clientId === clientId)?.playerId;
+    const targetPlayerId = localLobbyPlayerId || lobby.players.find((player) => player.clientId === clientId)?.playerId;
     if (!targetPlayerId) return;
     const nextLobby = updateLobbyPlayerById(lobbyRef.current, targetPlayerId, updates);
     lobbyRef.current = nextLobby;
@@ -232,7 +245,8 @@ export default function App() {
       const { cardId } = action.payload as { cardId: string };
       const requesterLobbyPlayer = lobbyRef.current.players.find((p) => p.clientId === action.clientId);
       if (requesterLobbyPlayer) {
-        const owner = sessionRef.current.players.find((p) => p.id === requesterLobbyPlayer.playerId);
+        const ownerId = getSessionPlayerIdForLobbyPlayer(sessionRef.current, requesterLobbyPlayer);
+        const owner = sessionRef.current.players.find((p) => p.id === ownerId);
         const isInRequestersHand = Boolean(owner?.handCardInstanceIds.includes(cardId));
         const isInDiscard = sessionRef.current.discardPiles.some((pile) => pile.cardInstanceIds.includes(cardId));
         if (!isInRequestersHand && !isInDiscard) {
@@ -259,8 +273,9 @@ export default function App() {
 
   const handleNetworkMessage = (message: MultiplayerMessage, peerId?: string) => {
     if (message.kind === "ACTION") {
-      if (modeRef.current === "host") applyHostAction(message.action);
-      else dispatchBase(message.action);
+      const action = modeRef.current === "host" && peerId ? { ...message.action, clientId: peerId } : message.action;
+      if (modeRef.current === "host") applyHostAction(action);
+      else dispatchBase(action);
     }
     if (message.kind === "FULL_STATE_SYNC") loadSyncedState(message.session, message.assets, message.deckTemplates);
     if (message.kind === "ASSET_SYNC") addAssets(message.assets);
@@ -376,7 +391,12 @@ export default function App() {
   };
 
   const drawDeck = (deckInstanceId: string) => {
-    const raw = createAction("DRAW_CARD", { deckInstanceId, playerId: sessionRef.current.activePlayerId }, clientId);
+    const playerId = mode === "local" ? sessionRef.current.activePlayerId : localPlayerId;
+    if (!playerId) {
+      setError("You have not been assigned a player slot yet.");
+      return;
+    }
+    const raw = createAction("DRAW_CARD", { deckInstanceId, playerId }, clientId);
     if (mode === "join") {
       clientSync.current?.send({ kind: "ACTION", action: raw });
       return;
@@ -598,7 +618,7 @@ export default function App() {
           <LobbyPanel
             lobby={lobby}
             localClientId={clientId}
-            localPlayerId={localPlayerId}
+            localPlayerId={localLobbyPlayerId}
             onMaxPlayers={(maxPlayers) => setLobby((current) => ({ ...current, maxPlayers }))}
             onName={(name) => updateLocalLobbyPlayer({ name })}
             onReady={(ready) => updateLocalLobbyPlayer({ ready })}
