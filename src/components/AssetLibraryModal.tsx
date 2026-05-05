@@ -15,6 +15,7 @@ interface AssetLibraryModalProps {
   onCreateGenericToken: (width: number, height: number) => void;
   onAddToDeck: (assetId: string) => void;
   onPlaceOnBoard: (assetId: string, width: number, height: number) => void;
+  getUsage?: (assetId: string) => string[];
   onError: (message: string) => void;
 }
 
@@ -95,26 +96,30 @@ export function AssetLibraryModal(props: AssetLibraryModalProps) {
           )}
         </div>
         <div className="asset-grid">
-          {filtered.map((asset) => (
-            <article className="asset-card" key={asset.id}>
-              <img src={asset.imageDataUrl} alt={asset.name} />
-              <input value={asset.name} onChange={(event) => props.onRename(asset.id, event.target.value)} />
-              <select value={asset.category} onChange={(event) => props.onCategory(asset.id, event.target.value as AssetCategory)}>
-                <option value="card">Card</option>
-                <option value="board">Board</option>
-                <option value="token">Token</option>
-                <option value="deck">Deck</option>
-                <option value="misc">Misc</option>
-              </select>
-              <div className="asset-actions">
-                {(props.mode === "browse" || props.mode === "setBoard") && <button onClick={() => props.onUseAsBoard(asset.id, boardSize.width, boardSize.height)}>Use as Board</button>}
-                {(props.mode === "browse" || props.mode === "token") && <button onClick={() => props.onUseAsToken(asset.id, tokenSize.width, tokenSize.height)}>Use as Token</button>}
-                {(props.mode === "browse" || props.mode === "addToDeck") && <button onClick={() => props.onAddToDeck(asset.id)}>Add to Deck</button>}
-                {(props.mode === "browse" || props.mode === "placeImage") && <button onClick={() => props.onPlaceOnBoard(asset.id, imageSize.width, imageSize.height)}>Place</button>}
-                <button className="danger" onClick={() => props.onDelete(asset.id)}>Delete</button>
-              </div>
-            </article>
-          ))}
+          {filtered.map((asset) => {
+            const usage = props.getUsage?.(asset.id) ?? [];
+            return (
+              <article className="asset-card" key={asset.id}>
+                <img src={asset.imageDataUrl} alt={asset.name} />
+                <input value={asset.name} onChange={(event) => props.onRename(asset.id, event.target.value)} />
+                <select value={asset.category} onChange={(event) => props.onCategory(asset.id, event.target.value as AssetCategory)}>
+                  <option value="card">Card</option>
+                  <option value="board">Board</option>
+                  <option value="token">Token</option>
+                  <option value="deck">Deck</option>
+                  <option value="misc">Misc</option>
+                </select>
+                {usage.length > 0 && <small className="asset-usage">Used in {usage.join(", ")}</small>}
+                <div className="asset-actions">
+                  {(props.mode === "browse" || props.mode === "setBoard") && <button onClick={() => props.onUseAsBoard(asset.id, boardSize.width, boardSize.height)}>Use as Board</button>}
+                  {(props.mode === "browse" || props.mode === "token") && <button onClick={() => props.onUseAsToken(asset.id, tokenSize.width, tokenSize.height)}>Use as Token</button>}
+                  {(props.mode === "browse" || props.mode === "addToDeck") && <button onClick={() => props.onAddToDeck(asset.id)}>Add to Deck</button>}
+                  {(props.mode === "browse" || props.mode === "placeImage") && <button onClick={() => props.onPlaceOnBoard(asset.id, imageSize.width, imageSize.height)}>Place</button>}
+                  <button className="danger asset-delete-button" onClick={() => props.onDelete(asset.id)}>Delete Asset</button>
+                </div>
+              </article>
+            );
+          })}
         </div>
       </div>
     </div>

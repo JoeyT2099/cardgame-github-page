@@ -291,6 +291,10 @@ export default function App() {
     }
     if (message.kind === "FULL_STATE_SYNC") loadSyncedState(message.session, message.assets, message.deckTemplates);
     if (message.kind === "ASSET_SYNC") addAssets(message.assets);
+    if (message.kind === "ASSET_DELETE") {
+      setAssets((current) => current.filter((asset) => asset.id !== message.assetId));
+      deleteAsset(message.assetId).catch(() => undefined);
+    }
     if (message.kind === "DECK_TEMPLATE_SYNC") {
       setDeckTemplates((current) => mergeById(current, message.deckTemplates));
       message.deckTemplates.forEach((deck) => saveDeckTemplate(deck).catch(() => undefined));
@@ -363,6 +367,62 @@ export default function App() {
     setDeckTemplates((current) => current.filter((deck) => deck.id !== deckId));
     deleteDeckTemplate(deckId).catch(() => setError("Failed to delete deck template."));
     return true;
+  };
+
+  const getAssetUsage = (assetId: string) => {
+    const usage = new Set<string>();
+    if (session.boardAssetId === assetId) usage.add("board background");
+    if (session.deckInstances.some((deck) => deck.remainingCardAssetIds.includes(assetId) || deck.drawnCardAssetIds.includes(assetId))) usage.add("deck on table");
+    if (session.cardInstances.some((card) => card.assetId === assetId || card.backAssetId === assetId)) usage.add("cards on table");
+    if (session.tokenInstances.some((token) => token.assetId === assetId)) usage.add("tokens on table");
+    if (session.placedImageInstances.some((image) => image.assetId === assetId)) usage.add("placed images");
+    if (
+      deckTemplates.some(
+        (deck) =>
+          deck.defaultBackAssetId === assetId ||
+          deck.cardAssetIds.includes(assetId) ||
+          Object.values(deck.cardBackAssetIds ?? {}).includes(assetId)
+      )
+    ) {
+      usage.add("saved decks");
+    }
+    return [...usage];
+  };
+
+  const deleteAssetFromLibrary = (assetId: string) => {
+    const usage = getAssetUsage(assetId);
+    const run = () => {
+      setAssets((current) => current.filter((asset) => asset.id !== assetId));
+      setDeckTemplates((current) => {
+        const updated = current.map((deck) => {
+          const nextBacks = Object.fromEntries(
+            Object.entries(deck.cardBackAssetIds ?? {}).filter(([cardAssetId, backAssetId]) => cardAssetId !== assetId && backAssetId !== assetId)
+          );
+          return {
+            ...deck,
+            cardAssetIds: deck.cardAssetIds.filter((id) => id !== assetId),
+            defaultBackAssetId: deck.defaultBackAssetId === assetId ? undefined : deck.defaultBackAssetId,
+            cardBackAssetIds: Object.keys(nextBacks).length > 0 ? nextBacks : undefined,
+            updatedAt: Date.now()
+          };
+        });
+        updated.forEach((deck) => saveDeckTemplate(deck).catch(() => setError("Failed to update deck template.")));
+        if (mode === "host") hostSync.current?.broadcast({ kind: "DECK_TEMPLATE_SYNC", deckTemplates: updated });
+        return updated;
+      });
+      deleteAsset(assetId).catch(() => setError("Failed to delete asset."));
+      if (mode === "host") hostSync.current?.broadcast({ kind: "ASSET_DELETE", assetId });
+      setConfirm(undefined);
+    };
+    if (usage.length > 0) {
+      setConfirm({
+        title: "Delete Asset",
+        message: `Delete this asset from the library? It is currently used in ${usage.join(", ")}. Saved deck references will be removed, but objects already on the table may show as missing until removed.`,
+        onConfirm: run
+      });
+      return;
+    }
+    run();
   };
 
   // Layer helpers
@@ -700,22 +760,14 @@ export default function App() {
           onClose={() => setModal(undefined)}
           onUpload={addAssets}
           onRename={(assetId, name) => persistAssets(assets.map((asset) => asset.id === assetId ? { ...asset, name, updatedAt: Date.now() } : asset))}
-          onDelete={(assetId) => {
-            const inUse = JSON.stringify(session).includes(assetId);
-            const run = () => {
-              setAssets((current) => current.filter((asset) => asset.id !== assetId));
-              deleteAsset(assetId).catch(() => setError("Failed to delete asset."));
-              setConfirm(undefined);
-            };
-            if (inUse) setConfirm({ title: "Asset In Use", message: "This asset is used in the current session. Delete it anyway?", onConfirm: run });
-            else run();
-          }}
+          onDelete={deleteAssetFromLibrary}
           onCategory={(assetId, category: AssetCategory) => persistAssets(assets.map((asset) => asset.id === assetId ? { ...asset, category, updatedAt: Date.now() } : asset))}
           onUseAsBoard={placeBoardImage}
           onUseAsToken={createTokenFromAsset}
           onCreateGenericToken={createGenericToken}
           onAddToDeck={() => setModal("createDeck")}
           onPlaceOnBoard={placeImage}
+          getUsage={getAssetUsage}
           onError={setError}
         />
       )}
