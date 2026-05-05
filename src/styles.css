@@ -572,6 +572,12 @@ p {
   appearance: none;
 }
 
+.deck-editor-main > .form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  align-items: end;
+}
+
 .deck-editor-layout {
   display: grid;
   grid-template-columns: 190px minmax(0, 1fr);
@@ -611,14 +617,50 @@ p {
 
 .deck-editor-main {
   min-width: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  max-height: calc(90vh - 82px);
+  overflow: hidden;
 }
 
-.deck-card-grid {
-  max-height: 52vh;
+.asset-grid.compact.deck-card-grid {
+  grid-template-columns: repeat(auto-fill, minmax(136px, 1fr));
+  align-items: stretch;
+  max-height: none;
+  min-height: 0;
+  padding-bottom: 4px;
+}
+
+.deck-card-grid .asset-pick {
+  min-height: 252px;
+  grid-template-rows: 110px 44px auto auto;
+  align-content: start;
+}
+
+.deck-card-grid .asset-pick img {
+  width: 100%;
+  height: 110px;
+  aspect-ratio: auto;
+  object-fit: contain;
+  margin: 0;
+}
+
+.deck-card-grid .asset-pick > span {
+  min-width: 0;
+  height: 44px;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+  font-size: 13px;
+}
+
+.deck-card-grid .quantity-control {
+  align-self: end;
 }
 
 .card-back-select {
   gap: 3px;
+  margin-top: auto;
 }
 
 .card-back-select select {
