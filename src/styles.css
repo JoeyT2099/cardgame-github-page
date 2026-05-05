@@ -814,6 +814,23 @@ p {
   padding-right: 4px;
 }
 
+.deck-list-action {
+  border-style: dashed;
+  color: #94a3b8;
+  justify-content: center;
+  text-align: center !important;
+}
+
+.deck-list-action:hover {
+  color: #e5edf5;
+}
+
+.deck-list-divider {
+  border: 0;
+  border-top: 1px solid #303a47;
+  margin: 2px 0;
+}
+
 .deck-template-list button,
 .add-deck-row {
   display: grid;
@@ -839,6 +856,12 @@ p {
   overflow: hidden;
 }
 
+.deck-editor-main .modal-actions {
+  border-top: 1px solid #26303d;
+  margin-top: 4px;
+  padding-top: 10px;
+}
+
 .asset-grid.compact.deck-card-grid {
   grid-template-columns: repeat(auto-fill, minmax(152px, 1fr));
   align-items: stretch;
@@ -846,6 +869,7 @@ p {
   gap: 12px;
   max-height: none;
   min-height: 0;
+  overflow-y: auto;
   padding-bottom: 12px;
 }
 

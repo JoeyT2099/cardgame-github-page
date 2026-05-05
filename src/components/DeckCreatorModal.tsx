@@ -143,12 +143,28 @@ export function DeckCreatorModal({ assets, deckTemplates, onClose, onUpload, onS
         <div className="deck-editor-layout">
           <aside className="deck-template-list">
             <button className={editingDeckId === "new" ? "active" : ""} onClick={() => setEditingDeckId("new")}>New Deck</button>
+            <button type="button" className="deck-list-action" onClick={() => importInputRef.current?.click()}>Import Deck</button>
+            {sortedDecks.length > 0 && <hr className="deck-list-divider" />}
             {sortedDecks.map((deck) => (
               <button key={deck.id} className={editingDeckId === deck.id ? "active" : ""} onClick={() => setEditingDeckId(deck.id)}>
                 <span>{deck.name}</span>
                 <small>{deck.cardAssetIds.length} cards</small>
               </button>
             ))}
+            <input
+              ref={importInputRef}
+              className="hidden-input"
+              type="file"
+              accept="application/json"
+              onChange={async (event) => {
+                const file = event.target.files?.[0];
+                if (file) {
+                  const importedDeck = await onImport(file);
+                  if (importedDeck) setEditingDeckId(importedDeck.id);
+                }
+                event.target.value = "";
+              }}
+            />
           </aside>
           <section className="deck-editor-main">
             <div className="form-row">
@@ -166,22 +182,6 @@ export function DeckCreatorModal({ assets, deckTemplates, onClose, onUpload, onS
               <button type="button" onClick={setAllCardBacks}>Set All Card Backs</button>
               <FileUploadButton label="Upload Card Images" category="card" onAssets={uploadCards} onError={onError} />
               <FileUploadButton label="Upload Card Back" category="deck" multiple={false} onAssets={uploadBack} onError={onError} />
-              <button type="button" onClick={() => importInputRef.current?.click()}>Import Deck</button>
-              {editingDeck && <button type="button" onClick={() => onExport(editingDeck)}>Export Deck</button>}
-              <input
-                ref={importInputRef}
-                className="hidden-input"
-                type="file"
-                accept="application/json"
-                onChange={async (event) => {
-                  const file = event.target.files?.[0];
-                  if (file) {
-                    const importedDeck = await onImport(file);
-                    if (importedDeck) setEditingDeckId(importedDeck.id);
-                  }
-                  event.target.value = "";
-                }}
-              />
             </div>
             <div className="deck-count-summary">
               <strong>{deckCardAssetIds.length}</strong>
@@ -222,6 +222,7 @@ export function DeckCreatorModal({ assets, deckTemplates, onClose, onUpload, onS
             <div className="modal-actions">
               <span>{editingDeck ? "Editing saved deck" : "Creating new deck"}</span>
               {editingDeck && <button className="danger" onClick={() => { if (onDelete(editingDeck.id)) setEditingDeckId("new"); }}>Delete Deck</button>}
+              {editingDeck && <button type="button" onClick={() => onExport(editingDeck)}>Export Deck</button>}
               <button onClick={save}>{editingDeck ? "Save Changes" : "Save Deck"}</button>
             </div>
           </section>
