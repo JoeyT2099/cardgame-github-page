@@ -177,6 +177,31 @@ p {
   transition: transform 180ms ease;
 }
 
+.board-zoom-controls {
+  position: absolute;
+  z-index: 12000;
+  right: 12px;
+  top: 12px;
+  display: grid;
+  grid-template-columns: 34px 120px 34px 58px;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid #374151;
+  border-radius: 7px;
+  background: rgba(15, 23, 42, 0.9);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.32);
+}
+
+.board-zoom-controls button {
+  height: 30px;
+  padding: 0 8px;
+}
+
+.board-zoom-controls input {
+  width: 100%;
+}
+
 .board-background {
   position: absolute;
   inset: 50% auto auto 50%;
@@ -475,9 +500,26 @@ p {
 
 .library-tools {
   display: grid;
-  grid-template-columns: auto 1fr 160px;
+  grid-template-columns: auto minmax(180px, 1fr) 160px;
   gap: 10px;
   margin-bottom: 14px;
+}
+
+.placement-size-controls {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.placement-size-controls label {
+  width: 86px;
+  gap: 3px;
+}
+
+.placement-size-controls input {
+  width: 100%;
 }
 
 .asset-grid {
@@ -883,6 +925,22 @@ p {
 .discard-card-row select {
   padding: 4px 6px;
   font-size: 12px;
+}
+
+.token-color-slider {
+  grid-template-columns: 1fr 28px;
+  align-items: center;
+}
+
+.token-color-slider span {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #475569;
+  border-radius: 50%;
+}
+
+.token-color-slider input {
+  grid-column: 1 / -1;
 }
 
 .toast {

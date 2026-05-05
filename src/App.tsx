@@ -77,6 +77,7 @@ export default function App() {
   const lobbyRef = React.useRef(lobby);
   const importInputRef = React.useRef<HTMLInputElement>(null);
   const [activeLayerId, setActiveLayerId] = React.useState<string>(LAYER_IDS.cards);
+  const [boardZoom, setBoardZoom] = React.useState(1);
   const [perspectivePlayerId, setPerspectivePlayerId] = React.useState<string>(session.activePlayerId);
 
   // Keep activeLayerId valid when layers change (e.g. after loading a session)
@@ -256,24 +257,29 @@ export default function App() {
     }
   };
 
-  const setBoardImage = (assetId: string) => {
+  const placeBoardImage = (assetId: string, width = 720, height = 420) => {
     const asset = assets.find((item) => item.id === assetId);
     if (asset) addAssets([{ ...asset, sharedInSession: true }]);
-    applyAction(createAction("SET_BOARD_IMAGE", { assetId }, clientId));
+    applyAction(createAction("PLACE_IMAGE", { id: crypto.randomUUID(), assetId, x: 120, y: 90, width, height, layerId: LAYER_IDS.board }, clientId));
     setModal(undefined);
   };
 
-  const placeImage = (assetId: string) => {
+  const placeImage = (assetId: string, width = 180, height = 140) => {
     const asset = assets.find((item) => item.id === assetId);
     if (asset) addAssets([{ ...asset, sharedInSession: true }]);
-    applyAction(createAction("PLACE_IMAGE", { id: crypto.randomUUID(), assetId, x: 180, y: 150, layerId: activeLayerId }, clientId));
+    applyAction(createAction("PLACE_IMAGE", { id: crypto.randomUUID(), assetId, x: 180, y: 150, width, height, layerId: activeLayerId }, clientId));
     setModal(undefined);
   };
 
-  const createTokenFromAsset = (assetId: string) => {
+  const createTokenFromAsset = (assetId: string, width = 64, height = 64) => {
     const asset = assets.find((item) => item.id === assetId);
     if (asset) addAssets([{ ...asset, sharedInSession: true }]);
-    applyAction(createAction("CREATE_TOKEN", { id: crypto.randomUUID(), assetId, x: 220, y: 180, layerId: activeLayerId }, clientId));
+    applyAction(createAction("CREATE_TOKEN", { id: crypto.randomUUID(), assetId, x: 220, y: 180, width, height, layerId: LAYER_IDS.tokens }, clientId));
+    setModal(undefined);
+  };
+
+  const createGenericToken = (width = 64, height = 64) => {
+    applyAction(createAction("CREATE_TOKEN", { id: crypto.randomUUID(), label: "1", color: "hsl(45 93% 60%)", x: 240, y: 220, width, height, layerId: LAYER_IDS.tokens }, clientId));
     setModal(undefined);
   };
 
@@ -516,7 +522,7 @@ export default function App() {
         onCreateDeck={() => setModal("createDeck")}
         onAddDeck={() => setModal("addDeck")}
         onAddDiscard={() => applyAction(createAction("CREATE_DISCARD_PILE", { id: crypto.randomUUID(), name: "Discard", x: 260, y: 160, layerId: activeLayerId }, clientId))}
-        onAddToken={() => applyAction(createAction("CREATE_TOKEN", { id: crypto.randomUUID(), label: "1", color: "#facc15", x: 240, y: 220, layerId: activeLayerId }, clientId))}
+        onAddToken={() => setModal("token")}
         onPlaceImage={() => setModal("placeImage")}
         onOpenMultiplayer={() => setModal("multiplayer")}
         onSave={saveSession}
@@ -571,7 +577,7 @@ export default function App() {
             </div>
           </section>
         </aside>
-        <BoardCanvas session={session} assets={assets} perspectiveRotation={getPerspectiveRotation(session, boardPerspectivePlayerId)} activeLayerId={activeLayerId} onSelect={(objectId) => applyAction(createAction("SELECT_OBJECT", { objectId }, clientId))} onMove={moveObject} onDrawDeck={drawDeck} />
+        <BoardCanvas session={session} assets={assets} perspectiveRotation={getPerspectiveRotation(session, boardPerspectivePlayerId)} zoom={boardZoom} activeLayerId={activeLayerId} onZoom={setBoardZoom} onSelect={(objectId) => applyAction(createAction("SELECT_OBJECT", { objectId }, clientId))} onMove={moveObject} onDrawDeck={drawDeck} />
         <ObjectInspector
           session={session}
           assets={assets}
@@ -590,6 +596,7 @@ export default function App() {
           onShuffleDeck={shuffleDeck}
           onResetDeck={resetDeck}
           onAssignLayer={(object, layerId) => applyAction(createAction("ASSIGN_LAYER", { objectType: object.type, objectId: object.id, layerId }, clientId))}
+          onTokenColor={(tokenId, color) => applyAction(createAction("UPDATE_TOKEN_COLOR", { tokenId, color }, clientId))}
         />
       </div>
       <PlayerHands
@@ -620,8 +627,9 @@ export default function App() {
             else run();
           }}
           onCategory={(assetId, category: AssetCategory) => persistAssets(assets.map((asset) => asset.id === assetId ? { ...asset, category, updatedAt: Date.now() } : asset))}
-          onUseAsBoard={setBoardImage}
+          onUseAsBoard={placeBoardImage}
           onUseAsToken={createTokenFromAsset}
+          onCreateGenericToken={createGenericToken}
           onAddToDeck={() => setModal("createDeck")}
           onPlaceOnBoard={placeImage}
           onError={setError}

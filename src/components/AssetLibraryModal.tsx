@@ -10,10 +10,11 @@ interface AssetLibraryModalProps {
   onRename: (assetId: string, name: string) => void;
   onDelete: (assetId: string) => void;
   onCategory: (assetId: string, category: AssetCategory) => void;
-  onUseAsBoard: (assetId: string) => void;
-  onUseAsToken: (assetId: string) => void;
+  onUseAsBoard: (assetId: string, width: number, height: number) => void;
+  onUseAsToken: (assetId: string, width: number, height: number) => void;
+  onCreateGenericToken: (width: number, height: number) => void;
   onAddToDeck: (assetId: string) => void;
-  onPlaceOnBoard: (assetId: string) => void;
+  onPlaceOnBoard: (assetId: string, width: number, height: number) => void;
   onError: (message: string) => void;
 }
 
@@ -26,9 +27,16 @@ const categories: { label: string; value: AssetFilter }[] = [
   { label: "Misc", value: "misc" }
 ];
 
+const getDefaultSize = (mode: AssetLibraryModalProps["mode"]) => {
+  if (mode === "setBoard") return { width: 720, height: 420 };
+  if (mode === "token") return { width: 64, height: 64 };
+  return { width: 180, height: 140 };
+};
+
 export function AssetLibraryModal(props: AssetLibraryModalProps) {
   const [query, setQuery] = React.useState("");
   const [filter, setFilter] = React.useState<AssetFilter>("all");
+  const [size, setSize] = React.useState(() => getDefaultSize(props.mode));
   const filtered = props.assets.filter((asset) => {
     const matchesQuery = asset.name.toLowerCase().includes(query.toLowerCase());
     const matchesFilter = filter === "all" || asset.category === filter;
@@ -40,6 +48,24 @@ export function AssetLibraryModal(props: AssetLibraryModalProps) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [props.onClose]);
+
+  React.useEffect(() => {
+    setSize(getDefaultSize(props.mode));
+    if (props.mode === "setBoard") setFilter("board");
+    if (props.mode === "token") setFilter("token");
+  }, [props.mode]);
+
+  const setDimension = (dimension: "width" | "height", value: number) => {
+    setSize((current) => ({
+      ...current,
+      [dimension]: Math.max(24, Math.min(2000, Math.floor(Number.isFinite(value) ? value : current[dimension])))
+    }));
+  };
+
+  const isPlacementMode = props.mode === "setBoard" || props.mode === "placeImage" || props.mode === "token";
+  const boardSize = props.mode === "setBoard" ? size : getDefaultSize("setBoard");
+  const tokenSize = props.mode === "token" ? size : getDefaultSize("token");
+  const imageSize = props.mode === "placeImage" ? size : getDefaultSize("placeImage");
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true">
@@ -54,6 +80,19 @@ export function AssetLibraryModal(props: AssetLibraryModalProps) {
           <select value={filter} onChange={(event) => setFilter(event.target.value as AssetFilter)}>
             {categories.map((category) => <option key={category.value} value={category.value}>{category.label}</option>)}
           </select>
+          {isPlacementMode && (
+            <div className="placement-size-controls">
+              <label>
+                W
+                <input type="number" min="24" max="2000" value={size.width} onChange={(event) => setDimension("width", Number(event.target.value))} />
+              </label>
+              <label>
+                H
+                <input type="number" min="24" max="2000" value={size.height} onChange={(event) => setDimension("height", Number(event.target.value))} />
+              </label>
+              {props.mode === "token" && <button type="button" onClick={() => props.onCreateGenericToken(size.width, size.height)}>Generic Token</button>}
+            </div>
+          )}
         </div>
         <div className="asset-grid">
           {filtered.map((asset) => (
@@ -68,10 +107,10 @@ export function AssetLibraryModal(props: AssetLibraryModalProps) {
                 <option value="misc">Misc</option>
               </select>
               <div className="asset-actions">
-                <button onClick={() => props.onUseAsBoard(asset.id)}>Use as Board</button>
-                <button onClick={() => props.onUseAsToken(asset.id)}>Use as Token</button>
-                <button onClick={() => props.onAddToDeck(asset.id)}>Add to Deck</button>
-                <button onClick={() => props.onPlaceOnBoard(asset.id)}>Place</button>
+                {(props.mode === "browse" || props.mode === "setBoard") && <button onClick={() => props.onUseAsBoard(asset.id, boardSize.width, boardSize.height)}>Use as Board</button>}
+                {(props.mode === "browse" || props.mode === "token") && <button onClick={() => props.onUseAsToken(asset.id, tokenSize.width, tokenSize.height)}>Use as Token</button>}
+                {(props.mode === "browse" || props.mode === "addToDeck") && <button onClick={() => props.onAddToDeck(asset.id)}>Add to Deck</button>}
+                {(props.mode === "browse" || props.mode === "placeImage") && <button onClick={() => props.onPlaceOnBoard(asset.id, imageSize.width, imageSize.height)}>Place</button>}
                 <button className="danger" onClick={() => props.onDelete(asset.id)}>Delete</button>
               </div>
             </article>

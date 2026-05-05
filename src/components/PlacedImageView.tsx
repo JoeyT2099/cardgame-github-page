@@ -7,12 +7,13 @@ interface PlacedImageViewProps {
   asset?: AssetTemplate;
   selected: boolean;
   perspectiveRotation: number;
+  movementScale?: number;
   interactive?: boolean;
   onSelect: () => void;
   onDragEnd: (x: number, y: number) => void;
 }
 
-export function PlacedImageView({ image, asset, selected, perspectiveRotation, interactive = true, onSelect, onDragEnd }: PlacedImageViewProps) {
+export function PlacedImageView({ image, asset, selected, perspectiveRotation, movementScale = 1, interactive = true, onSelect, onDragEnd }: PlacedImageViewProps) {
   return (
     <DraggableObject
       className={`board-object placed-image-object ${selected ? "selected" : ""}`}
@@ -25,6 +26,7 @@ export function PlacedImageView({ image, asset, selected, perspectiveRotation, i
         transform: `rotate(${image.rotation}deg)`
       }}
       movementRotation={perspectiveRotation}
+      movementScale={movementScale}
       interactive={interactive}
       onSelect={onSelect}
       onDragEnd={onDragEnd}

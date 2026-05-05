@@ -22,7 +22,32 @@ interface ObjectInspectorProps {
   onShuffleDeck: (deckInstanceId: string) => void;
   onResetDeck: (deckInstanceId: string) => void;
   onAssignLayer: (object: AnyBoardObject, layerId: string) => void;
+  onTokenColor: (tokenId: string, color: string) => void;
 }
+
+const colorToHue = (color = "hsl(45 93% 60%)") => {
+  const hslMatch = color.match(/hsl\(\s*(\d+(?:\.\d+)?)/i);
+  if (hslMatch) return Number(hslMatch[1]);
+  const hexMatch = color.match(/^#?([0-9a-f]{6})$/i);
+  if (!hexMatch) return 45;
+  const value = hexMatch[1];
+  const r = Number.parseInt(value.slice(0, 2), 16) / 255;
+  const g = Number.parseInt(value.slice(2, 4), 16) / 255;
+  const b = Number.parseInt(value.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const delta = max - min;
+  if (delta === 0) return 0;
+  const hue =
+    max === r
+      ? ((g - b) / delta) % 6
+      : max === g
+        ? (b - r) / delta + 2
+        : (r - g) / delta + 4;
+  return Math.round((hue * 60 + 360) % 360);
+};
+
+const tokenColorFromHue = (hue: number) => `hsl(${hue} 93% 60%)`;
 
 export function ObjectInspector(props: ObjectInspectorProps) {
   const object = findBoardObject(props.session, props.session.selectedObjectId);
@@ -101,6 +126,21 @@ export function ObjectInspector(props: ObjectInspectorProps) {
           <button onClick={() => props.onShuffleDeck(object.id)}>Shuffle Remaining</button>
           <button onClick={() => props.onResetDeck(object.id)}>Reset Deck</button>
           <p>{object.remainingCardAssetIds.length} cards remaining</p>
+        </div>
+      )}
+      {object.type === "token" && !object.assetId && (
+        <div className="inspector-section">
+          <label className="token-color-slider">
+            Token Color
+            <span style={{ background: object.color ?? "hsl(45 93% 60%)" }} />
+            <input
+              type="range"
+              min="0"
+              max="360"
+              value={colorToHue(object.color)}
+              onChange={(event) => props.onTokenColor(object.id, tokenColorFromHue(Number(event.target.value)))}
+            />
+          </label>
         </div>
       )}
       {object.type === "card" && (

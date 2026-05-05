@@ -8,12 +8,13 @@ interface CardViewProps {
   backAsset?: AssetTemplate;
   selected: boolean;
   perspectiveRotation: number;
+  movementScale?: number;
   interactive?: boolean;
   onSelect: () => void;
   onDragEnd: (x: number, y: number) => void;
 }
 
-export function CardView({ card, asset, backAsset, selected, perspectiveRotation, interactive = true, onSelect, onDragEnd }: CardViewProps) {
+export function CardView({ card, asset, backAsset, selected, perspectiveRotation, movementScale = 1, interactive = true, onSelect, onDragEnd }: CardViewProps) {
   const [hovered, setHovered] = React.useState(false);
   return (
     <DraggableObject
@@ -27,6 +28,7 @@ export function CardView({ card, asset, backAsset, selected, perspectiveRotation
         transform: hovered ? `rotate(${-perspectiveRotation}deg) scale(1.35)` : `rotate(${card.rotation}deg)`
       }}
       movementRotation={perspectiveRotation}
+      movementScale={movementScale}
       interactive={interactive}
       onSelect={onSelect}
       onDragEnd={onDragEnd}
@@ -48,23 +50,27 @@ interface DraggableObjectProps {
   style: React.CSSProperties;
   children: React.ReactNode;
   movementRotation?: number;
+  movementScale?: number;
   interactive?: boolean;
   onSelect: () => void;
   onDragEnd: (x: number, y: number) => void;
   onHoverChange?: (hovered: boolean) => void;
 }
 
-export function DraggableObject({ className, style, children, movementRotation = 0, interactive = true, onSelect, onDragEnd, onHoverChange }: DraggableObjectProps) {
+export function DraggableObject({ className, style, children, movementRotation = 0, movementScale = 1, interactive = true, onSelect, onDragEnd, onHoverChange }: DraggableObjectProps) {
   const ref = React.useRef<HTMLDivElement>(null);
   const start = React.useRef<{ pointerX: number; pointerY: number; x: number; y: number } | undefined>(undefined);
 
   const toBoardDelta = (screenDx: number, screenDy: number) => {
+    const scale = Math.max(0.1, movementScale);
+    const dx = screenDx / scale;
+    const dy = screenDy / scale;
     const radians = (-movementRotation * Math.PI) / 180;
     const cos = Math.cos(radians);
     const sin = Math.sin(radians);
     return {
-      x: screenDx * cos - screenDy * sin,
-      y: screenDx * sin + screenDy * cos
+      x: dx * cos - dy * sin,
+      y: dx * sin + dy * cos
     };
   };
 

@@ -5,12 +5,13 @@ interface DiscardPileViewProps {
   pile: DiscardPile;
   selected: boolean;
   perspectiveRotation: number;
+  movementScale?: number;
   interactive?: boolean;
   onSelect: () => void;
   onDragEnd: (x: number, y: number) => void;
 }
 
-export function DiscardPileView({ pile, selected, perspectiveRotation, interactive = true, onSelect, onDragEnd }: DiscardPileViewProps) {
+export function DiscardPileView({ pile, selected, perspectiveRotation, movementScale = 1, interactive = true, onSelect, onDragEnd }: DiscardPileViewProps) {
   return (
     <DraggableObject
       className={`board-object discard-object ${selected ? "selected" : ""}`}
@@ -23,6 +24,7 @@ export function DiscardPileView({ pile, selected, perspectiveRotation, interacti
         transform: `rotate(${pile.rotation}deg)`
       }}
       movementRotation={perspectiveRotation}
+      movementScale={movementScale}
       interactive={interactive}
       onSelect={onSelect}
       onDragEnd={onDragEnd}

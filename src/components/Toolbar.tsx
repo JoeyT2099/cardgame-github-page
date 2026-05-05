@@ -25,7 +25,7 @@ export function Toolbar(props: ToolbarProps) {
     <header className="toolbar">
       <strong>Board Game Sandbox</strong>
       <button onClick={props.onOpenAssets}>Asset Library</button>
-      <button onClick={props.onSetBoard}>Set Board Image</button>
+      <button onClick={props.onSetBoard}>Add Board</button>
       <button onClick={props.onCreateDeck}>Create Deck</button>
       <button onClick={props.onAddDeck}>Add Deck</button>
       <button onClick={props.onAddDiscard}>Add Discard Pile</button>

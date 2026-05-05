@@ -143,7 +143,7 @@ export const gameReducer = (session: GameSession, action: GameAction): GameSessi
         zIndex: getNextZIndex(session),
         width: 96,
         height: 136,
-        faceUp: true,
+        faceUp: false,
         backAssetId: payload.backAssetId,
         layerId: deck.layerId ?? LAYER_IDS.cards
       };
@@ -230,23 +230,32 @@ export const gameReducer = (session: GameSession, action: GameAction): GameSessi
       });
     }
     case "CREATE_TOKEN": {
-      const payload = action.payload as { id: string; assetId?: string; label?: string; color?: string; x: number; y: number; layerId?: string };
+      const payload = action.payload as { id: string; assetId?: string; label?: string; color?: string; x: number; y: number; width?: number; height?: number; layerId?: string };
       return touch({
         ...session,
         tokenInstances: [
           ...session.tokenInstances,
-          { id: payload.id, assetId: payload.assetId, label: payload.label, color: payload.color, x: payload.x, y: payload.y, rotation: 0, zIndex: getNextZIndex(session), width: 64, height: 64, layerId: payload.layerId ?? LAYER_IDS.tokens }
+          { id: payload.id, assetId: payload.assetId, label: payload.label, color: payload.color, x: payload.x, y: payload.y, rotation: 0, zIndex: getNextZIndex(session), width: payload.width ?? 64, height: payload.height ?? 64, layerId: payload.layerId ?? LAYER_IDS.tokens }
         ],
         selectedObjectId: payload.id
       });
     }
+    case "UPDATE_TOKEN_COLOR": {
+      const payload = action.payload as { tokenId: string; color: string };
+      return touch({
+        ...session,
+        tokenInstances: session.tokenInstances.map((token) =>
+          token.id === payload.tokenId ? { ...token, color: payload.color } : token
+        )
+      });
+    }
     case "PLACE_IMAGE": {
-      const payload = action.payload as { id: string; assetId: string; x: number; y: number; layerId?: string };
+      const payload = action.payload as { id: string; assetId: string; x: number; y: number; width?: number; height?: number; layerId?: string };
       return touch({
         ...session,
         placedImageInstances: [
           ...session.placedImageInstances,
-          { id: payload.id, assetId: payload.assetId, x: payload.x, y: payload.y, rotation: 0, zIndex: getNextZIndex(session), width: 180, height: 140, layerId: payload.layerId ?? LAYER_IDS.board }
+          { id: payload.id, assetId: payload.assetId, x: payload.x, y: payload.y, rotation: 0, zIndex: getNextZIndex(session), width: payload.width ?? 180, height: payload.height ?? 140, layerId: payload.layerId ?? LAYER_IDS.board }
         ],
         selectedObjectId: payload.id
       });
