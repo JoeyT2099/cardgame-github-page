@@ -8,11 +8,12 @@ interface CardViewProps {
   backAsset?: AssetTemplate;
   selected: boolean;
   perspectiveRotation: number;
+  interactive?: boolean;
   onSelect: () => void;
   onDragEnd: (x: number, y: number) => void;
 }
 
-export function CardView({ card, asset, backAsset, selected, perspectiveRotation, onSelect, onDragEnd }: CardViewProps) {
+export function CardView({ card, asset, backAsset, selected, perspectiveRotation, interactive = true, onSelect, onDragEnd }: CardViewProps) {
   const [hovered, setHovered] = React.useState(false);
   return (
     <DraggableObject
@@ -26,6 +27,7 @@ export function CardView({ card, asset, backAsset, selected, perspectiveRotation
         transform: hovered ? `rotate(${-perspectiveRotation}deg) scale(1.35)` : `rotate(${card.rotation}deg)`
       }}
       movementRotation={perspectiveRotation}
+      interactive={interactive}
       onSelect={onSelect}
       onDragEnd={onDragEnd}
       onHoverChange={setHovered}
@@ -46,12 +48,13 @@ interface DraggableObjectProps {
   style: React.CSSProperties;
   children: React.ReactNode;
   movementRotation?: number;
+  interactive?: boolean;
   onSelect: () => void;
   onDragEnd: (x: number, y: number) => void;
   onHoverChange?: (hovered: boolean) => void;
 }
 
-export function DraggableObject({ className, style, children, movementRotation = 0, onSelect, onDragEnd, onHoverChange }: DraggableObjectProps) {
+export function DraggableObject({ className, style, children, movementRotation = 0, interactive = true, onSelect, onDragEnd, onHoverChange }: DraggableObjectProps) {
   const ref = React.useRef<HTMLDivElement>(null);
   const start = React.useRef<{ pointerX: number; pointerY: number; x: number; y: number } | undefined>(undefined);
 
@@ -66,6 +69,7 @@ export function DraggableObject({ className, style, children, movementRotation =
   };
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!interactive) return;
     if (event.button !== 0) return;
     onSelect();
     const element = ref.current;
@@ -80,6 +84,7 @@ export function DraggableObject({ className, style, children, movementRotation =
   };
 
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!interactive) return;
     if (!start.current || !ref.current) return;
     const delta = toBoardDelta(event.clientX - start.current.pointerX, event.clientY - start.current.pointerY);
     const x = start.current.x + delta.x;
@@ -89,6 +94,7 @@ export function DraggableObject({ className, style, children, movementRotation =
   };
 
   const finishDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!interactive) return;
     if (!start.current || !ref.current) return;
     const delta = toBoardDelta(event.clientX - start.current.pointerX, event.clientY - start.current.pointerY);
     const x = start.current.x + delta.x;
@@ -100,14 +106,15 @@ export function DraggableObject({ className, style, children, movementRotation =
   return (
     <div
       ref={ref}
-      className={className}
+      className={`${className}${interactive ? "" : " noninteractive"}`}
       style={style}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={finishDrag}
       onPointerCancel={finishDrag}
-      onPointerEnter={() => onHoverChange?.(true)}
-      onPointerLeave={() => onHoverChange?.(false)}
+      onPointerEnter={() => interactive && onHoverChange?.(true)}
+      onPointerLeave={() => interactive && onHoverChange?.(false)}
+      onDragStart={(event) => event.preventDefault()}
     >
       {children}
     </div>

@@ -15,6 +15,7 @@ interface ObjectInspectorProps {
   onFront: (object: AnyBoardObject) => void;
   onBack: (object: AnyBoardObject) => void;
   onFlipCard: (cardId: string) => void;
+  onMoveCardToBoard: (cardId: string, x: number, y: number) => void;
   onMoveCardToHand: (cardId: string, playerId: string) => void;
   onMoveCardToDiscard: (cardId: string, discardPileId: string) => void;
   onDrawDeck: (deckInstanceId: string) => void;
@@ -28,6 +29,7 @@ export function ObjectInspector(props: ObjectInspectorProps) {
   const [rotationInput, setRotationInput] = React.useState(0);
   const [widthInput, setWidthInput] = React.useState(0);
   const [heightInput, setHeightInput] = React.useState(0);
+  const assetMap = React.useMemo(() => new Map(props.assets.map((asset) => [asset.id, asset])), [props.assets]);
 
   React.useEffect(() => {
     setRotationInput(object?.rotation ?? 0);
@@ -118,6 +120,33 @@ export function ObjectInspector(props: ObjectInspectorProps) {
               {props.session.discardPiles.map((pile) => <option key={pile.id} value={pile.id}>{pile.name}</option>)}
             </select>
           </label>
+        </div>
+      )}
+      {object.type === "discard" && (
+        <div className="inspector-section">
+          <h3>Discarded Cards</h3>
+          {object.cardInstanceIds.length === 0 && <p className="muted">Empty discard pile.</p>}
+          <div className="discard-card-list">
+            {object.cardInstanceIds.map((cardId, index) => {
+              const card = props.session.cardInstances.find((item) => item.id === cardId);
+              const asset = card ? assetMap.get(card.assetId) : undefined;
+              const boardX = object.x + object.width + 18;
+              const boardY = object.y + index * 18;
+              return (
+                <div className="discard-card-row" key={cardId}>
+                  <div className="discard-card-thumb">
+                    {asset ? <img src={asset.imageDataUrl} alt={asset.name} /> : "?"}
+                  </div>
+                  <span title={asset?.name ?? "Missing card"}>{asset?.name ?? "Missing card"}</span>
+                  <button onClick={() => props.onMoveCardToBoard(cardId, boardX, boardY)}>Board</button>
+                  <select onChange={(event) => event.target.value && props.onMoveCardToHand(cardId, event.target.value)} defaultValue="">
+                    <option value="">Hand</option>
+                    {props.session.players.map((player) => <option key={player.id} value={player.id}>{player.name}</option>)}
+                  </select>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </aside>

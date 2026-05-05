@@ -5,12 +5,13 @@ interface DeckInstanceViewProps {
   deck: DeckInstance;
   selected: boolean;
   perspectiveRotation: number;
+  interactive?: boolean;
   onSelect: () => void;
   onDragEnd: (x: number, y: number) => void;
   onDraw: () => void;
 }
 
-export function DeckInstanceView({ deck, selected, perspectiveRotation, onSelect, onDragEnd, onDraw }: DeckInstanceViewProps) {
+export function DeckInstanceView({ deck, selected, perspectiveRotation, interactive = true, onSelect, onDragEnd, onDraw }: DeckInstanceViewProps) {
   return (
     <DraggableObject
       className={`board-object deck-object ${selected ? "selected" : ""}`}
@@ -23,6 +24,7 @@ export function DeckInstanceView({ deck, selected, perspectiveRotation, onSelect
         transform: `rotate(${deck.rotation}deg)`
       }}
       movementRotation={perspectiveRotation}
+      interactive={interactive}
       onSelect={onSelect}
       onDragEnd={onDragEnd}
     >

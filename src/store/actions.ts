@@ -73,6 +73,7 @@ export interface DrawCardPayload {
   playerId: string;
   chosenCardAssetId: string;
   cardInstanceId: string;
+  backAssetId?: string;
 }
 
 export interface ImportSessionPayload {

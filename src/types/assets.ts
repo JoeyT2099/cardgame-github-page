@@ -16,6 +16,7 @@ export interface DeckTemplate {
   name: string;
   cardAssetIds: string[];
   defaultBackAssetId?: string;
+  cardBackAssetIds?: Record<string, string>;
   createdAt: number;
   updatedAt: number;
 }

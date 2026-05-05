@@ -223,6 +223,10 @@ p {
   outline-offset: 2px;
 }
 
+.board-object.noninteractive {
+  pointer-events: none;
+}
+
 .board-object img,
 .asset-card img,
 .asset-pick img,
@@ -539,22 +543,87 @@ p {
 
 .quantity-control {
   display: grid;
-  grid-template-columns: 34px 1fr 34px;
+  grid-template-columns: 32px minmax(46px, 1fr) 32px;
   align-items: end;
   gap: 6px;
 }
 
 .quantity-control button {
+  width: 32px;
   height: 34px;
   padding: 0;
 }
 
 .quantity-control label {
   gap: 3px;
+  min-width: 0;
 }
 
 .quantity-control input {
+  width: 100%;
+  box-sizing: border-box;
   text-align: center;
+  appearance: textfield;
+}
+
+.quantity-control input::-webkit-outer-spin-button,
+.quantity-control input::-webkit-inner-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
+.deck-editor-layout {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 14px;
+  min-height: 0;
+}
+
+.deck-template-list,
+.add-deck-list {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.deck-template-list {
+  max-height: 68vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.deck-template-list button,
+.add-deck-row {
+  display: grid;
+  gap: 3px;
+  text-align: left;
+}
+
+.deck-template-list button.active {
+  border-color: #38bdf8;
+  background: #0d2233;
+}
+
+.deck-template-list small,
+.add-deck-row small {
+  color: #94a3b8;
+}
+
+.deck-editor-main {
+  min-width: 0;
+}
+
+.deck-card-grid {
+  max-height: 52vh;
+}
+
+.card-back-select {
+  gap: 3px;
+}
+
+.card-back-select select {
+  width: 100%;
+  font-size: 12px;
 }
 
 .session-list,
@@ -725,6 +794,53 @@ p {
   display: grid;
   align-content: start;
   gap: 10px;
+}
+
+.inspector h3 {
+  margin: 0;
+  font-size: 13px;
+  color: #dbe5f0;
+}
+
+.discard-card-list {
+  display: grid;
+  gap: 6px;
+}
+
+.discard-card-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid #2a3442;
+  border-radius: 6px;
+  background: #151c26;
+}
+
+.discard-card-thumb {
+  width: 34px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 4px;
+  background: #0f172a;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.discard-card-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.discard-card-row button,
+.discard-card-row select {
+  padding: 4px 6px;
+  font-size: 12px;
 }
 
 .toast {

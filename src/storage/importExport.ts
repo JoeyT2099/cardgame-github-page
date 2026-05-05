@@ -4,6 +4,12 @@ import { getRequiredAssetIds } from "../store/selectors";
 
 const collectDeckTemplateIds = (session: GameSession) => new Set(session.deckInstances.map((deck) => deck.deckTemplateId));
 
+const getDeckAssetIds = (deck: DeckTemplate) => [
+  ...deck.cardAssetIds,
+  ...(deck.defaultBackAssetId ? [deck.defaultBackAssetId] : []),
+  ...Object.values(deck.cardBackAssetIds ?? {})
+];
+
 export const createSessionBundle = (
   session: GameSession,
   assets: AssetTemplate[],
@@ -14,8 +20,7 @@ export const createSessionBundle = (
   const deckTemplateIds = collectDeckTemplateIds(session);
   const requiredDecks = deckTemplates.filter((deck) => deckTemplateIds.has(deck.id));
   requiredDecks.forEach((deck) => {
-    deck.cardAssetIds.forEach((assetId) => requiredAssetIds.add(assetId));
-    if (deck.defaultBackAssetId) requiredAssetIds.add(deck.defaultBackAssetId);
+    getDeckAssetIds(deck).forEach((assetId) => requiredAssetIds.add(assetId));
   });
   return {
     version: 1,
@@ -41,7 +46,7 @@ export const parseSessionBundle = (input: string): SessionBundle => {
 export const mergeById = <T extends { id: string }>(current: T[], incoming: T[]) => {
   const map = new Map(current.map((item) => [item.id, item]));
   incoming.forEach((item) => {
-    if (!map.has(item.id)) map.set(item.id, item);
+    map.set(item.id, item);
   });
   return [...map.values()];
 };

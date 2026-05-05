@@ -8,6 +8,7 @@ export const getAssetsForSession = (session: GameSession, assets: AssetTemplate[
     const template = deckTemplates.find((item) => item.id === instance.deckTemplateId);
     template?.cardAssetIds.forEach((assetId) => required.add(assetId));
     if (template?.defaultBackAssetId) required.add(template.defaultBackAssetId);
+    Object.values(template?.cardBackAssetIds ?? {}).forEach((assetId) => required.add(assetId));
   });
   return assets.filter((asset) => required.has(asset.id));
 };

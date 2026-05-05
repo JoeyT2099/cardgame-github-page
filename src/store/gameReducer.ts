@@ -69,7 +69,8 @@ export const resolveDrawAction = (
       deckInstanceId: deck.id,
       playerId: action.payload.playerId,
       chosenCardAssetId,
-      cardInstanceId: action.payload.cardInstanceId ?? crypto.randomUUID()
+      cardInstanceId: action.payload.cardInstanceId ?? crypto.randomUUID(),
+      backAssetId: template?.cardBackAssetIds?.[chosenCardAssetId] || template?.defaultBackAssetId
     }
   };
 };
@@ -143,6 +144,7 @@ export const gameReducer = (session: GameSession, action: GameAction): GameSessi
         width: 96,
         height: 136,
         faceUp: true,
+        backAssetId: payload.backAssetId,
         layerId: deck.layerId ?? LAYER_IDS.cards
       };
       return touch({
@@ -171,12 +173,13 @@ export const gameReducer = (session: GameSession, action: GameAction): GameSessi
     }
     case "MOVE_CARD_TO_BOARD": {
       const payload = action.payload as { cardId: string; x: number; y: number };
+      const sourcePile = session.discardPiles.find((pile) => pile.cardInstanceIds.includes(payload.cardId));
       const withoutHands = removeFromHands(removeFromDiscards(session, payload.cardId), payload.cardId);
       return touch({
         ...withoutHands,
         cardInstances: withoutHands.cardInstances.map((card) =>
           card.id === payload.cardId
-            ? { ...card, location: "board", ownerPlayerId: undefined, discardPileId: undefined, x: payload.x, y: payload.y, zIndex: getNextZIndex(withoutHands) }
+            ? { ...card, location: "board", ownerPlayerId: undefined, discardPileId: undefined, x: payload.x, y: payload.y, zIndex: getNextZIndex(withoutHands), layerId: sourcePile?.layerId ?? card.layerId }
             : card
         ),
         selectedObjectId: payload.cardId
@@ -202,11 +205,12 @@ export const gameReducer = (session: GameSession, action: GameAction): GameSessi
     }
     case "MOVE_CARD_TO_DISCARD": {
       const payload = action.payload as { cardId: string; discardPileId: string };
-      const withoutHands = removeFromHands(session, payload.cardId);
+      const targetPile = session.discardPiles.find((pile) => pile.id === payload.discardPileId);
+      const withoutHands = removeFromHands(removeFromDiscards(session, payload.cardId), payload.cardId);
       return touch({
         ...withoutHands,
         cardInstances: withoutHands.cardInstances.map((card) =>
-          card.id === payload.cardId ? { ...card, location: "discard", discardPileId: payload.discardPileId, ownerPlayerId: undefined } : card
+          card.id === payload.cardId ? { ...card, location: "discard", discardPileId: payload.discardPileId, ownerPlayerId: undefined, layerId: targetPile?.layerId ?? card.layerId } : card
         ),
         discardPiles: withoutHands.discardPiles.map((pile) =>
           pile.id === payload.discardPileId ? { ...pile, cardInstanceIds: [...new Set([...pile.cardInstanceIds, payload.cardId])] } : pile

@@ -1,4 +1,5 @@
 import React from "react";
+import { AddDeckModal } from "./components/AddDeckModal";
 import { AssetLibraryModal } from "./components/AssetLibraryModal";
 import { BoardCanvas } from "./components/BoardCanvas";
 import { ConfirmDialog } from "./components/ConfirmDialog";
@@ -13,6 +14,7 @@ import { Toolbar } from "./components/Toolbar";
 import { createAction, type GameAction } from "./store/actions";
 import { gameReducer, resolveDrawAction } from "./store/gameReducer";
 import { createEmptySession, createLobby, createLobbyPlayer, createPlayers, LAYER_IDS } from "./store/initialState";
+import { findBoardObject } from "./store/selectors";
 import type { AssetCategory, AssetTemplate, DeckTemplate } from "./types/assets";
 import type { AnyBoardObject, GameSession, SavedGameRecord, SessionBundle } from "./types/game";
 import type { AppMode, LobbyState } from "./types/lobby";
@@ -22,7 +24,7 @@ import { getAssetsForSession } from "./multiplayer/assetSync";
 import { ClientSync } from "./multiplayer/clientSync";
 import { HostSync } from "./multiplayer/hostSync";
 import { getAssets, saveAsset, deleteAsset } from "./storage/assetStorage";
-import { getDeckTemplates, saveDeckTemplate } from "./storage/deckStorage";
+import { deleteDeckTemplate, getDeckTemplates, saveDeckTemplate } from "./storage/deckStorage";
 import { deleteSavedGame, getSavedGames, saveGameBundle } from "./storage/gameStorage";
 import { createSessionBundle, mergeById, parseSessionBundle, stringifySessionBundle } from "./storage/importExport";
 import { getSavedSessions, loadCurrentSession, saveCurrentSession, saveNamedSession, deleteSavedSession, type SavedSessionRecord } from "./storage/sessionStorage";
@@ -174,6 +176,13 @@ export default function App() {
     if (mode === "join") clientSync.current?.send({ kind: "ACTION", action });
   };
 
+  React.useEffect(() => {
+    const selected = findBoardObject(session, session.selectedObjectId);
+    if (selected?.layerId && selected.layerId !== activeLayerId) {
+      applyAction(createAction("SELECT_OBJECT", { objectId: undefined }, clientId));
+    }
+  }, [activeLayerId, session.selectedObjectId, session.deckInstances, session.cardInstances, session.discardPiles, session.tokenInstances, session.placedImageInstances]);
+
   const applyHostAction = (action: GameAction) => {
     // Validate MOVE_CARD_TO_BOARD: only the player who owns the card may place it from their hand.
     if (action.type === "MOVE_CARD_TO_BOARD") {
@@ -181,8 +190,10 @@ export default function App() {
       const requesterLobbyPlayer = lobbyRef.current.players.find((p) => p.clientId === action.clientId);
       if (requesterLobbyPlayer) {
         const owner = sessionRef.current.players.find((p) => p.id === requesterLobbyPlayer.playerId);
-        if (!owner || !owner.handCardInstanceIds.includes(cardId)) {
-          // Reject: card not in requester's hand (or player not found)
+        const isInRequestersHand = Boolean(owner?.handCardInstanceIds.includes(cardId));
+        const isInDiscard = sessionRef.current.discardPiles.some((pile) => pile.cardInstanceIds.includes(cardId));
+        if (!isInRequestersHand && !isInDiscard) {
+          // Reject: card is neither in requester's hand nor a public discard pile.
           return;
         }
       }
@@ -245,8 +256,6 @@ export default function App() {
     }
   };
 
-  const selectedDeckTemplate = deckTemplates[0];
-
   const setBoardImage = (assetId: string) => {
     const asset = assets.find((item) => item.id === assetId);
     if (asset) addAssets([{ ...asset, sharedInSession: true }]);
@@ -268,13 +277,21 @@ export default function App() {
     setModal(undefined);
   };
 
-  const addDeckInstance = (deck = selectedDeckTemplate) => {
-    if (!deck) {
-      setError("Create a deck template before adding a deck to the board.");
-      return;
-    }
-    addAssets(assets.filter((asset) => deck.cardAssetIds.includes(asset.id) || asset.id === deck.defaultBackAssetId).map((asset) => ({ ...asset, sharedInSession: true })));
+  const addDeckInstance = (deck: DeckTemplate) => {
+    const deckAssetIds = new Set([...deck.cardAssetIds, ...(deck.defaultBackAssetId ? [deck.defaultBackAssetId] : []), ...Object.values(deck.cardBackAssetIds ?? {})]);
+    addAssets(assets.filter((asset) => deckAssetIds.has(asset.id)).map((asset) => ({ ...asset, sharedInSession: true })));
     applyAction(createAction("ADD_DECK_INSTANCE", { id: crypto.randomUUID(), deckTemplateId: deck.id, name: deck.name, cardAssetIds: deck.cardAssetIds, x: 120, y: 120, backAssetId: deck.defaultBackAssetId, layerId: activeLayerId }, clientId));
+    setModal(undefined);
+  };
+
+  const removeDeckTemplate = (deckId: string) => {
+    if (session.deckInstances.some((deck) => deck.deckTemplateId === deckId)) {
+      setError("Remove deck instances from the board before deleting this saved deck.");
+      return false;
+    }
+    setDeckTemplates((current) => current.filter((deck) => deck.id !== deckId));
+    deleteDeckTemplate(deckId).catch(() => setError("Failed to delete deck template."));
+    return true;
   };
 
   // Layer helpers
@@ -497,7 +514,7 @@ export default function App() {
         onOpenAssets={() => setModal("assets")}
         onSetBoard={() => setModal("setBoard")}
         onCreateDeck={() => setModal("createDeck")}
-        onAddDeck={() => addDeckInstance()}
+        onAddDeck={() => setModal("addDeck")}
         onAddDiscard={() => applyAction(createAction("CREATE_DISCARD_PILE", { id: crypto.randomUUID(), name: "Discard", x: 260, y: 160, layerId: activeLayerId }, clientId))}
         onAddToken={() => applyAction(createAction("CREATE_TOKEN", { id: crypto.randomUUID(), label: "1", color: "#facc15", x: 240, y: 220, layerId: activeLayerId }, clientId))}
         onPlaceImage={() => setModal("placeImage")}
@@ -554,7 +571,7 @@ export default function App() {
             </div>
           </section>
         </aside>
-        <BoardCanvas session={session} assets={assets} perspectiveRotation={getPerspectiveRotation(session, boardPerspectivePlayerId)} onSelect={(objectId) => applyAction(createAction("SELECT_OBJECT", { objectId }, clientId))} onMove={moveObject} onDrawDeck={drawDeck} />
+        <BoardCanvas session={session} assets={assets} perspectiveRotation={getPerspectiveRotation(session, boardPerspectivePlayerId)} activeLayerId={activeLayerId} onSelect={(objectId) => applyAction(createAction("SELECT_OBJECT", { objectId }, clientId))} onMove={moveObject} onDrawDeck={drawDeck} />
         <ObjectInspector
           session={session}
           assets={assets}
@@ -567,6 +584,7 @@ export default function App() {
           onBack={(object) => applyAction(createAction("SEND_TO_BACK", { objectType: object.type, objectId: object.id }, clientId))}
           onFlipCard={(cardId) => applyAction(createAction("FLIP_CARD", { cardId }, clientId))}
           onMoveCardToHand={(cardId, playerId) => applyAction(createAction("MOVE_CARD_TO_HAND", { cardId, playerId }, clientId))}
+          onMoveCardToBoard={(cardId, x, y) => applyAction(createAction("MOVE_CARD_TO_BOARD", { cardId, x, y }, clientId))}
           onMoveCardToDiscard={(cardId, discardPileId) => applyAction(createAction("MOVE_CARD_TO_DISCARD", { cardId, discardPileId }, clientId))}
           onDrawDeck={drawDeck}
           onShuffleDeck={shuffleDeck}
@@ -609,7 +627,8 @@ export default function App() {
           onError={setError}
         />
       )}
-      {modal === "createDeck" && <DeckCreatorModal assets={assets} onClose={() => setModal(undefined)} onUpload={addAssets} onSave={persistDeckTemplate} onError={setError} />}
+      {modal === "createDeck" && <DeckCreatorModal assets={assets} deckTemplates={deckTemplates} onClose={() => setModal(undefined)} onUpload={addAssets} onSave={persistDeckTemplate} onDelete={removeDeckTemplate} onError={setError} />}
+      {modal === "addDeck" && <AddDeckModal deckTemplates={deckTemplates} onClose={() => setModal(undefined)} onAdd={addDeckInstance} />}
       {modal === "sessions" && (
         <SessionManagerModal
           sessions={savedSessions}
