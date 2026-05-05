@@ -9,6 +9,8 @@ interface DeckCreatorModalProps {
   onUpload: (assets: AssetTemplate[]) => void;
   onSave: (deck: DeckTemplate) => void;
   onDelete: (deckId: string) => boolean;
+  onExport: (deck: DeckTemplate) => void;
+  onImport: (file: File) => DeckTemplate | undefined | Promise<DeckTemplate | undefined>;
   onError: (message: string) => void;
 }
 
@@ -23,7 +25,8 @@ const copyBacksForSelectedCards = (backs: Record<string, string> | undefined, qu
   return Object.fromEntries(Object.entries(backs ?? {}).filter(([assetId, backAssetId]) => selected.has(assetId) && backAssetId));
 };
 
-export function DeckCreatorModal({ assets, deckTemplates, onClose, onUpload, onSave, onDelete, onError }: DeckCreatorModalProps) {
+export function DeckCreatorModal({ assets, deckTemplates, onClose, onUpload, onSave, onDelete, onExport, onImport, onError }: DeckCreatorModalProps) {
+  const importInputRef = React.useRef<HTMLInputElement>(null);
   const sortedDecks = React.useMemo(() => [...deckTemplates].sort((a, b) => a.name.localeCompare(b.name)), [deckTemplates]);
   const [editingDeckId, setEditingDeckId] = React.useState<string>("new");
   const editingDeck = editingDeckId === "new" ? undefined : deckTemplates.find((deck) => deck.id === editingDeckId);
@@ -163,6 +166,22 @@ export function DeckCreatorModal({ assets, deckTemplates, onClose, onUpload, onS
               <button type="button" onClick={setAllCardBacks}>Set All Card Backs</button>
               <FileUploadButton label="Upload Card Images" category="card" onAssets={uploadCards} onError={onError} />
               <FileUploadButton label="Upload Card Back" category="deck" multiple={false} onAssets={uploadBack} onError={onError} />
+              <button type="button" onClick={() => importInputRef.current?.click()}>Import Deck</button>
+              {editingDeck && <button type="button" onClick={() => onExport(editingDeck)}>Export Deck</button>}
+              <input
+                ref={importInputRef}
+                className="hidden-input"
+                type="file"
+                accept="application/json"
+                onChange={async (event) => {
+                  const file = event.target.files?.[0];
+                  if (file) {
+                    const importedDeck = await onImport(file);
+                    if (importedDeck) setEditingDeckId(importedDeck.id);
+                  }
+                  event.target.value = "";
+                }}
+              />
             </div>
             <div className="deck-count-summary">
               <strong>{deckCardAssetIds.length}</strong>

@@ -12,7 +12,7 @@ const migrateSession = (session: GameSession): GameSession => {
   const defaultLayerId = (layers.find((l) => l.id === LAYER_IDS.cards) ?? layers[0]).id;
   const tokenLayerId = (layers.find((l) => l.id === LAYER_IDS.tokens) ?? layers[0]).id;
   const boardLayerId = (layers.find((l) => l.id === LAYER_IDS.board) ?? layers[0]).id;
-  const canvasTabs = session.canvasTabs && session.canvasTabs.length > 0 ? session.canvasTabs : createCanvasTabs(session.players);
+  const canvasTabs = session.canvasTabs && session.canvasTabs.length > 0 ? session.canvasTabs : createCanvasTabs();
   const defaultCanvasId = canvasTabs[0]?.id ?? MAIN_CANVAS_ID;
   return {
     ...session,
@@ -224,6 +224,13 @@ export const gameReducer = (session: GameSession, action: GameAction): GameSessi
         selectedObjectId: payload.discardPileId
       });
     }
+    case "RENAME_DISCARD_PILE": {
+      const payload = action.payload as { discardPileId: string; name: string };
+      return touch({
+        ...session,
+        discardPiles: session.discardPiles.map((pile) => (pile.id === payload.discardPileId ? { ...pile, name: payload.name } : pile))
+      });
+    }
     case "CREATE_DISCARD_PILE": {
       const payload = action.payload as { id: string; name: string; x: number; y: number; layerId?: string; canvasId?: string };
       return touch({
@@ -373,6 +380,30 @@ export const gameReducer = (session: GameSession, action: GameAction): GameSessi
     case "ASSIGN_LAYER": {
       const payload = action.payload as { objectId: string; objectType: MovePayload["objectType"]; layerId: string };
       return touch(updateObject(session, payload.objectType, payload.objectId, { layerId: payload.layerId }));
+    }
+    case "CREATE_CANVAS": {
+      const payload = action.payload as { id: string; name: string };
+      return touch({ ...session, canvasTabs: [...session.canvasTabs, { id: payload.id, name: payload.name }] });
+    }
+    case "DELETE_CANVAS": {
+      const payload = action.payload as { canvasId: string; fallbackCanvasId: string };
+      if (session.canvasTabs.length <= 1) return session;
+      const reassignCanvas = <T extends { canvasId?: string }>(items: T[]): T[] =>
+        items.map((item) => (item.canvasId === payload.canvasId ? { ...item, canvasId: payload.fallbackCanvasId } : item));
+      return touch({
+        ...session,
+        canvasTabs: session.canvasTabs.filter((canvas) => canvas.id !== payload.canvasId),
+        deckInstances: reassignCanvas(session.deckInstances),
+        cardInstances: reassignCanvas(session.cardInstances),
+        discardPiles: reassignCanvas(session.discardPiles),
+        tokenInstances: reassignCanvas(session.tokenInstances),
+        placedImageInstances: reassignCanvas(session.placedImageInstances),
+        selectedObjectId: undefined
+      });
+    }
+    case "RENAME_CANVAS": {
+      const payload = action.payload as { canvasId: string; name: string };
+      return touch({ ...session, canvasTabs: session.canvasTabs.map((canvas) => (canvas.id === payload.canvasId ? { ...canvas, name: payload.name } : canvas)) });
     }
     default:
       return session;

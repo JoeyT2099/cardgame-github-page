@@ -17,6 +17,9 @@ interface BoardCanvasProps {
   activeLayerId: string;
   onZoom: (zoom: number) => void;
   onCanvas: (canvasId: string) => void;
+  onCreateCanvas: () => void;
+  onDeleteCanvas: (canvasId: string) => void;
+  onRenameCanvas: (canvasId: string, name: string) => void;
   onSelect: (objectId?: string) => void;
   onMove: (objectType: "deck" | "card" | "discard" | "token" | "image", objectId: string, x: number, y: number) => void;
   onDrawDeck: (deckInstanceId: string) => void;
@@ -30,7 +33,7 @@ const effectiveZIndex = (layers: Layer[], layerId?: string, zIndex = 0): number 
   return (layer?.order ?? 0) * 1000 + zIndex;
 };
 
-export function BoardCanvas({ session, assets, perspectiveRotation, zoom, canvasTabs, activeCanvasId, activeLayerId, onZoom, onCanvas, onSelect, onMove, onDrawDeck }: BoardCanvasProps) {
+export function BoardCanvas({ session, assets, perspectiveRotation, zoom, canvasTabs, activeCanvasId, activeLayerId, onZoom, onCanvas, onCreateCanvas, onDeleteCanvas, onRenameCanvas, onSelect, onMove, onDrawDeck }: BoardCanvasProps) {
   const assetMap = React.useMemo(() => new Map(assets.map((asset) => [asset.id, asset])), [assets]);
   const boardAsset = session.boardAssetId ? assetMap.get(session.boardAssetId) : undefined;
   const { layers } = session;
@@ -82,10 +85,18 @@ export function BoardCanvas({ session, assets, perspectiveRotation, zoom, canvas
     <main className="board-wrap">
       <div className="canvas-tabs" onPointerDown={(event) => event.stopPropagation()}>
         {canvasTabs.map((canvas) => (
-          <button key={canvas.id} className={canvas.id === activeCanvasId ? "active" : ""} onClick={() => onCanvas(canvas.id)}>
-            {canvas.name}
-          </button>
+          <div key={canvas.id} className={`canvas-tab${canvas.id === activeCanvasId ? " active" : ""}`}>
+            <button onClick={() => onCanvas(canvas.id)}>{canvas.name.trim() || "Untitled"}</button>
+            <input
+              aria-label={`Rename ${canvas.name}`}
+              value={canvas.name}
+              onChange={(event) => onRenameCanvas(canvas.id, event.target.value)}
+              onFocus={() => onCanvas(canvas.id)}
+            />
+            <button aria-label={`Delete ${canvas.name}`} disabled={canvasTabs.length <= 1} onClick={() => onDeleteCanvas(canvas.id)}>x</button>
+          </div>
         ))}
+        <button className="canvas-add-button" onClick={onCreateCanvas}>+ Canvas</button>
       </div>
       <div className="board-canvas" onPointerDown={beginPan} onPointerMove={movePan} onPointerUp={endPan} onPointerCancel={endPan}>
         <div className="board-zoom-controls" onPointerDown={(event) => event.stopPropagation()}>

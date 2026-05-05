@@ -18,6 +18,7 @@ interface ObjectInspectorProps {
   onMoveCardToBoard: (cardId: string, x: number, y: number) => void;
   onMoveCardToHand: (cardId: string, playerId: string) => void;
   onMoveCardToDiscard: (cardId: string, discardPileId: string) => void;
+  onRenameDiscard: (discardPileId: string, name: string) => void;
   onDrawDeck: (deckInstanceId: string) => void;
   onShuffleDeck: (deckInstanceId: string) => void;
   onResetDeck: (deckInstanceId: string) => void;
@@ -171,6 +172,10 @@ export function ObjectInspector(props: ObjectInspectorProps) {
       )}
       {object.type === "discard" && (
         <div className="inspector-section">
+          <label>
+            Discard Name
+            <input value={object.name} onChange={(event) => props.onRenameDiscard(object.id, event.target.value)} />
+          </label>
           <h3>Discarded Cards</h3>
           {object.cardInstanceIds.length === 0 && <p className="muted">Empty discard pile.</p>}
           <div className="discard-card-list">

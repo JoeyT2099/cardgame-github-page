@@ -25,10 +25,7 @@ export const createPlayers = (count: 2 | 3 | 4): Player[] =>
     handCardInstanceIds: []
   }));
 
-export const createCanvasTabs = (players: Player[]) => [
-  { id: MAIN_CANVAS_ID, name: "Main Board" },
-  ...players.map((player) => ({ id: `canvas-${player.id}`, name: player.name }))
-];
+export const createCanvasTabs = () => [{ id: MAIN_CANVAS_ID, name: "Canvas 1" }];
 
 export const createEmptySession = (count: 2 | 3 | 4 = 2, name = "Untitled Session"): GameSession => {
   const players = createPlayers(count);
@@ -43,7 +40,7 @@ export const createEmptySession = (count: 2 | 3 | 4 = 2, name = "Untitled Sessio
     tokenInstances: [],
     placedImageInstances: [],
     layers: DEFAULT_LAYERS.map((layer) => ({ ...layer })),
-    canvasTabs: createCanvasTabs(players),
+    canvasTabs: createCanvasTabs(),
     lastUpdatedAt: Date.now()
   };
 };

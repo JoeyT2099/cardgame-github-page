@@ -30,7 +30,7 @@ export function DiscardPileView({ pile, selected, perspectiveRotation, movementS
       onDragEnd={onDragEnd}
     >
       <div className="object-label">
-        <span>{pile.name}</span>
+        <span>{pile.name.trim() || "Discard"}</span>
         <strong>{pile.cardInstanceIds.length}</strong>
       </div>
     </DraggableObject>

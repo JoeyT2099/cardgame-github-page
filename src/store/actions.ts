@@ -39,7 +39,11 @@ export type GameActionType =
   | "TOGGLE_LAYER_VISIBILITY"
   | "TOGGLE_LAYER_LOCK"
   | "REORDER_LAYERS"
-  | "ASSIGN_LAYER";
+  | "ASSIGN_LAYER"
+  | "CREATE_CANVAS"
+  | "DELETE_CANVAS"
+  | "RENAME_CANVAS"
+  | "RENAME_DISCARD_PILE";
 
 export interface GameAction<TPayload = unknown> {
   id: string;
