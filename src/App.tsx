@@ -26,7 +26,7 @@ import { HostSync } from "./multiplayer/hostSync";
 import { getAssets, saveAsset, deleteAsset } from "./storage/assetStorage";
 import { deleteDeckTemplate, getDeckTemplates, saveDeckTemplate } from "./storage/deckStorage";
 import { deleteSavedGame, getSavedGames, saveGameBundle } from "./storage/gameStorage";
-import { createSessionBundle, mergeById, parseSessionBundle, stringifySessionBundle } from "./storage/importExport";
+import { createDeckBundle, createSessionBundle, mergeById, parseDeckBundle, parseSessionBundle, stringifyDeckBundle, stringifySessionBundle } from "./storage/importExport";
 import { getSavedSessions, loadCurrentSession, saveCurrentSession, saveNamedSession, deleteSavedSession, type SavedSessionRecord } from "./storage/sessionStorage";
 
 type ModalName = "assets" | "setBoard" | "createDeck" | "addDeck" | "placeImage" | "token" | "sessions" | "multiplayer" | undefined;
@@ -118,6 +118,7 @@ export default function App() {
   const lobbyRef = React.useRef(lobby);
   const lastHostRefreshAtRef = React.useRef(0);
   const importInputRef = React.useRef<HTMLInputElement>(null);
+  const importDeckInputRef = React.useRef<HTMLInputElement>(null);
   const [activeLayerId, setActiveLayerId] = React.useState<string>(LAYER_IDS.cards);
   const [activeCanvasId, setActiveCanvasId] = React.useState<string>(MAIN_CANVAS_ID);
   const [boardZoom, setBoardZoom] = React.useState(1);
@@ -238,12 +239,14 @@ export default function App() {
     const merged = mergeById(assetsRef.current, incoming);
     persistAssets(merged);
     if (mode === "host") hostSync.current?.broadcast({ kind: "ASSET_SYNC", assets: incoming });
+    if (mode === "join") clientSync.current?.send({ kind: "ASSET_SYNC", assets: incoming });
   };
 
   const persistDeckTemplate = (deck: DeckTemplate) => {
     setDeckTemplates((current) => mergeById(current, [deck]));
     saveDeckTemplate(deck).catch(() => setError("Failed to save deck template."));
     if (mode === "host") hostSync.current?.broadcast({ kind: "DECK_TEMPLATE_SYNC", deckTemplates: [deck] });
+    if (mode === "join") clientSync.current?.send({ kind: "DECK_TEMPLATE_SYNC", deckTemplates: [deck] });
   };
 
   const applyAction = (action: GameAction) => {
@@ -306,6 +309,7 @@ export default function App() {
     if (message.kind === "DECK_TEMPLATE_SYNC") {
       setDeckTemplates((current) => mergeById(current, message.deckTemplates));
       message.deckTemplates.forEach((deck) => saveDeckTemplate(deck).catch(() => undefined));
+      if (modeRef.current === "host") hostSync.current?.broadcast({ kind: "DECK_TEMPLATE_SYNC", deckTemplates: message.deckTemplates });
     }
     if (message.kind === "LOBBY_PLAYER_UPDATE" && modeRef.current === "host" && peerId) {
       const player = lobbyRef.current.players.find((item) => item.playerId === message.playerId);
@@ -554,6 +558,29 @@ export default function App() {
     }
   };
 
+  const exportDeck = (deckId: string) => {
+    const deck = deckTemplatesRef.current.find((d) => d.id === deckId);
+    if (!deck) return;
+    const bundle = createDeckBundle(deck, assetsRef.current);
+    const blob = new Blob([stringifyDeckBundle(bundle)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${deck.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase() || "deck"}.deck.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importDeck = async (file: File) => {
+    try {
+      const bundle = parseDeckBundle(await file.text());
+      addAssets(bundle.assets);
+      persistDeckTemplate(bundle.deckTemplate);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Imported deck file invalid.");
+    }
+  };
+
   const newSession = () => {
     const run = () => {
       const next = createEmptySession(lobby.maxPlayers, "New Session");
@@ -731,6 +758,7 @@ export default function App() {
         onSetActiveLayer={setActiveLayerId}
       />
       <input ref={importInputRef} className="hidden-input" type="file" accept="application/json" onChange={(event) => event.target.files?.[0] && importSession(event.target.files[0])} />
+      <input ref={importDeckInputRef} className="hidden-input" type="file" accept="application/json" onChange={(event) => { if (event.target.files?.[0]) { importDeck(event.target.files[0]); event.target.value = ""; } }} />
       {error && <div className="toast"><span>{error}</span><button onClick={() => setError("")}>Dismiss</button></div>}
       <div className="workspace">
         <aside className="left-panel">
@@ -835,7 +863,7 @@ export default function App() {
           onError={setError}
         />
       )}
-      {modal === "createDeck" && <DeckCreatorModal assets={assets} deckTemplates={deckTemplates} onClose={() => setModal(undefined)} onUpload={addAssets} onSave={persistDeckTemplate} onDelete={removeDeckTemplate} onError={setError} />}
+      {modal === "createDeck" && <DeckCreatorModal assets={assets} deckTemplates={deckTemplates} onClose={() => setModal(undefined)} onUpload={addAssets} onSave={persistDeckTemplate} onDelete={removeDeckTemplate} onExport={exportDeck} onImport={() => importDeckInputRef.current?.click()} onError={setError} />}
       {modal === "addDeck" && <AddDeckModal deckTemplates={deckTemplates} onClose={() => setModal(undefined)} onAdd={addDeckInstance} />}
       {modal === "sessions" && (
         <SessionManagerModal
