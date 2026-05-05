@@ -758,7 +758,7 @@ export default function App() {
         onSetActiveLayer={setActiveLayerId}
       />
       <input ref={importInputRef} className="hidden-input" type="file" accept="application/json" onChange={(event) => event.target.files?.[0] && importSession(event.target.files[0])} />
-      <input ref={importDeckInputRef} className="hidden-input" type="file" accept="application/json" onChange={(event) => { if (event.target.files?.[0]) { importDeck(event.target.files[0]); event.target.value = ""; } }} />
+      <input ref={importDeckInputRef} className="hidden-input" type="file" accept="application/json" onChange={(event) => event.target.files?.[0] && importDeck(event.target.files[0])} />
       {error && <div className="toast"><span>{error}</span><button onClick={() => setError("")}>Dismiss</button></div>}
       <div className="workspace">
         <aside className="left-panel">
