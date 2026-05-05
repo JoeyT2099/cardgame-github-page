@@ -319,7 +319,25 @@ p {
 
 .placed-image-object {
   background: transparent;
+  border-color: transparent;
+  border-radius: 0;
   box-shadow: none;
+}
+
+.placed-image-object img,
+.token-image-object img {
+  object-fit: fill;
+}
+
+.token-image-object {
+  background: transparent;
+  border-color: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.token-generic-object {
+  border-radius: 50%;
 }
 
 .hands-panel {

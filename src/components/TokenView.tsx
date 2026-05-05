@@ -16,7 +16,7 @@ interface TokenViewProps {
 export function TokenView({ token, asset, selected, perspectiveRotation, movementScale = 1, interactive = true, onSelect, onDragEnd }: TokenViewProps) {
   return (
     <DraggableObject
-      className={`board-object token-object ${selected ? "selected" : ""}`}
+      className={`board-object token-object ${asset ? "token-image-object" : "token-generic-object"} ${selected ? "selected" : ""}`}
       style={{
         left: token.x,
         top: token.y,
