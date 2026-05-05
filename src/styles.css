@@ -785,22 +785,25 @@ p {
 }
 
 .asset-grid.compact.deck-card-grid {
-  grid-template-columns: repeat(auto-fill, minmax(136px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(152px, 1fr));
   align-items: stretch;
+  grid-auto-rows: minmax(328px, auto);
+  gap: 12px;
   max-height: none;
   min-height: 0;
-  padding-bottom: 4px;
+  padding-bottom: 12px;
 }
 
 .deck-card-grid .asset-pick {
-  min-height: 252px;
-  grid-template-rows: 110px 44px auto auto;
+  min-height: 328px;
+  grid-template-rows: 118px 48px 64px 54px;
   align-content: start;
+  overflow: hidden;
 }
 
 .deck-card-grid .asset-pick img {
   width: 100%;
-  height: 110px;
+  height: 118px;
   aspect-ratio: auto;
   object-fit: contain;
   margin: 0;
@@ -808,7 +811,7 @@ p {
 
 .deck-card-grid .asset-pick > span {
   min-width: 0;
-  height: 44px;
+  height: 48px;
   overflow: hidden;
   overflow-wrap: anywhere;
   line-height: 1.25;
@@ -821,7 +824,7 @@ p {
 
 .card-back-select {
   gap: 3px;
-  margin-top: auto;
+  min-width: 0;
 }
 
 .card-back-select select {

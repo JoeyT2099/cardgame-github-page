@@ -190,15 +190,13 @@ export function DeckCreatorModal({ assets, deckTemplates, onClose, onUpload, onS
                     </label>
                     <button type="button" onClick={() => setQuantity(asset.id, (quantities[asset.id] ?? 0) + 1)}>+</button>
                   </div>
-                  {(quantities[asset.id] ?? 0) > 0 && (
-                    <label className="card-back-select">
-                      Back
-                      <select value={cardBackAssetIds[asset.id] ?? ""} onChange={(event) => setCardBack(asset.id, event.target.value)}>
-                        <option value="">Use default</option>
-                        {backCandidates.map((backAsset) => <option key={backAsset.id} value={backAsset.id}>{backAsset.name}</option>)}
-                      </select>
-                    </label>
-                  )}
+                  <label className="card-back-select">
+                    Back
+                    <select value={cardBackAssetIds[asset.id] ?? ""} onChange={(event) => setCardBack(asset.id, event.target.value)}>
+                      <option value="">Use default</option>
+                      {backCandidates.map((backAsset) => <option key={backAsset.id} value={backAsset.id}>{backAsset.name}</option>)}
+                    </select>
+                  </label>
                 </article>
               ))}
             </div>
