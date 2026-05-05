@@ -12,6 +12,7 @@ export type MultiplayerMessage =
   | { kind: "ASSET_SYNC"; assets: AssetTemplate[] }
   | { kind: "DECK_TEMPLATE_SYNC"; deckTemplates: DeckTemplate[] }
   | { kind: "LOBBY_SYNC"; lobby: LobbyState }
+  | { kind: "LOBBY_PLAYER_UPDATE"; playerId: string; updates: { name?: string; color?: string; ready?: boolean } }
   | { kind: "START_GAME"; lobby: LobbyState; session: GameSession; assets: AssetTemplate[]; deckTemplates: DeckTemplate[] }
   | { kind: "ERROR"; message: string }
   /** Sent by the host to a specific joining client to tell them which playerId they were assigned. */

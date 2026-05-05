@@ -36,6 +36,18 @@ const getPerspectiveRotation = (session: GameSession, playerId: string) => {
   return (index * 360) / Math.max(1, session.players.length);
 };
 
+const lobbyForLocalMode = (lobby: LobbyState, mode: AppMode): LobbyState =>
+  mode === "join" ? { ...lobby, mode: "join" } : lobby;
+
+const updateLobbyPlayerById = (
+  lobby: LobbyState,
+  playerId: string,
+  updates: { name?: string; color?: string; ready?: boolean }
+): LobbyState => ({
+  ...lobby,
+  players: lobby.players.map((player) => (player.playerId === playerId ? { ...player, ...updates } : player))
+});
+
 export default function App() {
   const [assets, setAssets] = React.useState<AssetTemplate[]>([]);
   const [deckTemplates, setDeckTemplates] = React.useState<DeckTemplate[]>([]);
@@ -110,6 +122,22 @@ export default function App() {
     if (mode === "host") return lobby.players.find((p) => p.clientId === clientId)?.playerId ?? "";
     return myAssignedPlayerId;
   }, [mode, perspectivePlayerId, lobby, myAssignedPlayerId]);
+
+  const boardPerspectivePlayerId = mode === "local" ? perspectivePlayerId : localPlayerId || perspectivePlayerId;
+
+  const updateLocalLobbyPlayer = (updates: { name?: string; color?: string; ready?: boolean }) => {
+    const targetPlayerId = localPlayerId || lobby.players.find((player) => player.clientId === clientId)?.playerId;
+    if (!targetPlayerId) return;
+    const nextLobby = updateLobbyPlayerById(lobbyRef.current, targetPlayerId, updates);
+    lobbyRef.current = nextLobby;
+    setLobby(nextLobby);
+    if (mode === "join") {
+      clientSync.current?.send({ kind: "LOBBY_PLAYER_UPDATE", playerId: targetPlayerId, updates });
+    }
+    if (mode === "host") {
+      hostSync.current?.broadcast({ kind: "LOBBY_SYNC", lobby: nextLobby });
+    }
+  };
 
   React.useEffect(() => {
     Promise.all([getAssets(), getDeckTemplates(), getSavedSessions(), getSavedGames(), loadCurrentSession()])
@@ -186,13 +214,30 @@ export default function App() {
       setDeckTemplates((current) => mergeById(current, message.deckTemplates));
       message.deckTemplates.forEach((deck) => saveDeckTemplate(deck).catch(() => undefined));
     }
-    if (message.kind === "LOBBY_SYNC") setLobby(message.lobby);
+    if (message.kind === "LOBBY_PLAYER_UPDATE" && modeRef.current === "host" && peerId) {
+      const player = lobbyRef.current.players.find((item) => item.playerId === message.playerId);
+      if (player?.clientId !== peerId) return;
+      const nextLobby = updateLobbyPlayerById(lobbyRef.current, message.playerId, message.updates);
+      lobbyRef.current = nextLobby;
+      setLobby(nextLobby);
+      hostSync.current?.broadcast({ kind: "LOBBY_SYNC", lobby: nextLobby });
+    }
+    if (message.kind === "LOBBY_SYNC") {
+      const nextLobby = lobbyForLocalMode(message.lobby, modeRef.current);
+      lobbyRef.current = nextLobby;
+      setLobby(nextLobby);
+    }
     if (message.kind === "START_GAME") {
-      setLobby(message.lobby);
       setMode("join");
+      const nextLobby = lobbyForLocalMode(message.lobby, "join");
+      lobbyRef.current = nextLobby;
+      setLobby(nextLobby);
       loadSyncedState(message.session, message.assets, message.deckTemplates);
     }
-    if (message.kind === "PLAYER_ASSIGN") setMyAssignedPlayerId(message.playerId);
+    if (message.kind === "PLAYER_ASSIGN") {
+      setMyAssignedPlayerId(message.playerId);
+      setPerspectivePlayerId(message.playerId);
+    }
     if (message.kind === "ERROR") setError(message.message);
     if (modeRef.current === "host" && peerId) {
       const required = getAssetsForSession(sessionRef.current, assetsRef.current, deckTemplatesRef.current);
@@ -385,6 +430,7 @@ export default function App() {
       const client = new ClientSync((message) => handleNetworkMessage(message), (connected) => setNetworkStatus(connected ? "connected" : "disconnected"));
       clientSync.current = client;
       setMode("join");
+      setLobby((current) => ({ ...current, mode: "join" }));
       setNetworkStatus("connecting");
       setAnswerCode(await client.joinFromOffer(code));
     } catch (error) {
@@ -437,6 +483,7 @@ export default function App() {
     hostSync.current?.close();
     clientSync.current?.close();
     setMode("local");
+    setMyAssignedPlayerId("");
     setNetworkStatus("idle");
     setPeers([]);
     setOfferCode("");
@@ -472,9 +519,10 @@ export default function App() {
           <LobbyPanel
             lobby={lobby}
             localClientId={clientId}
+            localPlayerId={localPlayerId}
             onMaxPlayers={(maxPlayers) => setLobby((current) => ({ ...current, maxPlayers }))}
-            onName={(name) => setLobby((current) => ({ ...current, players: current.players.map((player, index) => index === 0 ? { ...player, name } : player) }))}
-            onReady={(ready) => setLobby((current) => ({ ...current, players: current.players.map((player, index) => index === 0 ? { ...player, ready } : player) }))}
+            onName={(name) => updateLocalLobbyPlayer({ name })}
+            onReady={(ready) => updateLocalLobbyPlayer({ ready })}
             onOpenMultiplayer={() => setModal("multiplayer")}
             onStart={startLobbyGame}
           />
@@ -506,7 +554,7 @@ export default function App() {
             </div>
           </section>
         </aside>
-        <BoardCanvas session={session} assets={assets} perspectiveRotation={getPerspectiveRotation(session, perspectivePlayerId)} onSelect={(objectId) => applyAction(createAction("SELECT_OBJECT", { objectId }, clientId))} onMove={moveObject} onDrawDeck={drawDeck} />
+        <BoardCanvas session={session} assets={assets} perspectiveRotation={getPerspectiveRotation(session, boardPerspectivePlayerId)} onSelect={(objectId) => applyAction(createAction("SELECT_OBJECT", { objectId }, clientId))} onMove={moveObject} onDrawDeck={drawDeck} />
         <ObjectInspector
           session={session}
           assets={assets}

@@ -4,6 +4,8 @@ interface LobbyPanelProps {
   lobby: LobbyState;
   /** The clientId of the local browser session, used to highlight "You" in the seat list. */
   localClientId: string;
+  /** The host-assigned playerId for this browser, used after WebRTC join assignment. */
+  localPlayerId?: string;
   onMaxPlayers: (maxPlayers: 2 | 3 | 4) => void;
   onName: (name: string) => void;
   onReady: (ready: boolean) => void;
@@ -11,8 +13,10 @@ interface LobbyPanelProps {
   onStart: () => void;
 }
 
-export function LobbyPanel({ lobby, localClientId, onMaxPlayers, onName, onReady, onOpenMultiplayer, onStart }: LobbyPanelProps) {
-  const self = lobby.players[0];
+export function LobbyPanel({ lobby, localClientId, localPlayerId, onMaxPlayers, onName, onReady, onOpenMultiplayer, onStart }: LobbyPanelProps) {
+  const isSelf = (player?: LobbyState["players"][number]) =>
+    Boolean(player && (player.clientId === localClientId || (localPlayerId && player.playerId === localPlayerId)));
+  const self = lobby.players.find(isSelf) ?? lobby.players[0];
   const isLocal = lobby.mode === "local";
   const isHost = lobby.mode === "host";
   const canStart =
@@ -29,7 +33,7 @@ export function LobbyPanel({ lobby, localClientId, onMaxPlayers, onName, onReady
       status: player ? (player.connected ? "connected" : "disconnected") : isLocal ? "local seat" : "waiting",
       ready: player?.ready ?? isLocal,
       color: player?.color ?? "#64748b",
-      isYou: player?.clientId === localClientId,
+      isYou: isSelf(player),
       isHostSeat: player?.isHost ?? false
     };
   });
