@@ -14,8 +14,12 @@ interface LobbyPanelProps {
 }
 
 export function LobbyPanel({ lobby, localClientId, localPlayerId, onMaxPlayers, onName, onReady, onOpenMultiplayer, onStart }: LobbyPanelProps) {
-  const isSelf = (player?: LobbyState["players"][number]) =>
-    Boolean(player && (player.clientId === localClientId || (localPlayerId && player.playerId === localPlayerId)));
+  const isSelf = (player?: LobbyState["players"][number]) => {
+    if (!player) return false;
+    if (lobby.mode === "join") return Boolean(localPlayerId && player.playerId === localPlayerId);
+    if (localPlayerId) return player.playerId === localPlayerId;
+    return player.clientId === localClientId;
+  };
   const self = lobby.players.find(isSelf) ?? lobby.players[0];
   const isLocal = lobby.mode === "local";
   const isHost = lobby.mode === "host";
