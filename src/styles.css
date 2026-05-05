@@ -808,6 +808,30 @@ p {
   color: #94a3b8;
 }
 
+.deck-list-action {
+  border-style: dashed;
+  color: #94a3b8;
+  text-align: center !important;
+  display: block !important;
+  gap: 0 !important;
+}
+
+.deck-list-action:hover {
+  color: #e5edf5;
+}
+
+.deck-list-divider {
+  border: none;
+  border-top: 1px solid #303a47;
+  margin: 2px 0;
+}
+
+.deck-editor-main .modal-actions {
+  border-top: 1px solid #26303d;
+  padding-top: 10px;
+  margin-top: 4px;
+}
+
 .deck-editor-main {
   min-width: 0;
   display: grid;
@@ -823,6 +847,7 @@ p {
   gap: 12px;
   max-height: none;
   min-height: 0;
+  overflow-y: auto;
   padding-bottom: 12px;
 }
 
