@@ -68,6 +68,7 @@ export function ObjectInspector(props: ObjectInspectorProps) {
   const [heightInput, setHeightInput] = React.useState(0);
   const [previewAsset, setPreviewAsset] = React.useState<AssetTemplate>();
   const [isExamining, setIsExamining] = React.useState(false);
+  const [examineFaceUp, setExamineFaceUp] = React.useState(true);
   const [deckTargetPlayerId, setDeckTargetPlayerId] = React.useState("");
   const assetMap = React.useMemo(() => new Map(props.assets.map((asset) => [asset.id, asset])), [props.assets]);
   const cardMap = React.useMemo(() => new Map(props.session.cardInstances.map((card) => [card.id, card])), [props.session.cardInstances]);
@@ -81,7 +82,8 @@ export function ObjectInspector(props: ObjectInspectorProps) {
   React.useEffect(() => {
     setPreviewAsset(undefined);
     setIsExamining(false);
-  }, [object?.id]);
+    setExamineFaceUp(object?.type === "card" ? object.faceUp : true);
+  }, [object?.id, object?.type, object?.type === "card" ? object.faceUp : undefined]);
 
   React.useEffect(() => {
     if (!deckTargetPlayerId || props.session.players.some((player) => player.id === deckTargetPlayerId)) return;
@@ -113,12 +115,25 @@ export function ObjectInspector(props: ObjectInspectorProps) {
       ? cardMap.get(object.cardInstanceIds[object.cardInstanceIds.length - 1])
       : undefined;
   const examinedDiscardAsset = examinedDiscardTopCard ? assetMap.get(examinedDiscardTopCard.assetId) : undefined;
+  const openExamine = () => {
+    setExamineFaceUp(object.type === "card" ? object.faceUp : true);
+    setIsExamining(true);
+  };
 
   const examinePreview = isExamining ? (
     <div className="examine-preview" role="dialog" aria-label={`Examining ${title}`}>
-      <button title="Close the enlarged object preview." onClick={() => setIsExamining(false)}>Close</button>
-      {object.type === "card" && object.faceUp && examinedCardAsset && <img src={examinedCardAsset.imageDataUrl} alt={examinedCardAsset.name} />}
-      {object.type === "card" && (!object.faceUp || !examinedCardAsset) && (
+      <div className="examine-controls">
+        {object.type === "card" && (
+          <button title="Flip only this enlarged preview without changing the card on the board." onClick={() => setExamineFaceUp((faceUp) => !faceUp)}>
+            {examineFaceUp ? "Show Back" : "Show Front"}
+          </button>
+        )}
+        <button title="Close the enlarged object preview." onClick={() => setIsExamining(false)}>Close</button>
+      </div>
+      {object.type === "card" && examineFaceUp && (
+        examinedCardAsset ? <img src={examinedCardAsset.imageDataUrl} alt={examinedCardAsset.name} /> : <div className="examine-placeholder">Missing card front</div>
+      )}
+      {object.type === "card" && !examineFaceUp && (
         examinedCardBackAsset ? <img src={examinedCardBackAsset.imageDataUrl} alt={examinedCardBackAsset.name} /> : <div className="generic-card-back">Card Back</div>
       )}
       {object.type === "image" && examinedImageAsset && <img src={examinedImageAsset.imageDataUrl} alt={examinedImageAsset.name} />}
@@ -182,7 +197,7 @@ export function ObjectInspector(props: ObjectInspectorProps) {
         </label>
       </div>
       <div className="button-grid">
-        <button title="Show a large preview of the selected object." onClick={() => setIsExamining(true)}>Examine</button>
+        <button title="Show a large preview of the selected object." onClick={openExamine}>Examine</button>
         <button title="Move object above others." onClick={() => props.onFront(object)}>Bring to Front</button>
         <button title="Move object behind others." onClick={() => props.onBack(object)}>Send to Back</button>
         {(object.type === "card" || object.type === "token" || object.type === "image") && <button title="Create a copy of this object." onClick={() => props.onDuplicate(object)}>Duplicate</button>}

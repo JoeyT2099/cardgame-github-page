@@ -616,8 +616,11 @@ p {
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.65);
 }
 
-.examine-preview > button {
-  justify-self: end;
+.examine-controls {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .examine-preview img {
