@@ -27,7 +27,7 @@ import { getAssets, saveAsset, deleteAsset } from "./storage/assetStorage";
 import { deleteDeckTemplate, getDeckTemplates, saveDeckTemplate } from "./storage/deckStorage";
 import { deleteSavedGame, getSavedGames, saveGameBundle } from "./storage/gameStorage";
 import { createDeckBundle, createSessionBundle, mergeById, parseDeckBundle, parseSessionBundle, stringifyDeckBundle, stringifySessionBundle } from "./storage/importExport";
-import { getSavedSessions, loadCurrentSession, saveCurrentSession, saveNamedSession, deleteSavedSession, type SavedSessionRecord } from "./storage/sessionStorage";
+import { getSavedSessions, loadCurrentSession, saveCurrentSession, deleteSavedSession, type SavedSessionRecord } from "./storage/sessionStorage";
 
 type ModalName = "assets" | "setBoard" | "createDeck" | "addDeck" | "placeImage" | "token" | "sessions" | "multiplayer" | undefined;
 type PendingInvite = { peerId: string; offerCode: string; createdAt: number };
@@ -555,10 +555,6 @@ export default function App() {
     applyAction(createAction("FULL_STATE_SYNC", { ...session, deckInstances: session.deckInstances.map((item) => (item.id === deck.id ? { ...item, remainingCardAssetIds: [...template.cardAssetIds], drawnCardAssetIds: [] } : item)) }, clientId));
   };
 
-  const saveSession = () => {
-    saveNamedSession(session).then(() => getSavedSessions().then(setSavedSessions)).catch(() => setError("Failed to save session."));
-  };
-
   const loadGameBundle = (bundle: SessionBundle) => {
     addAssets(bundle.assets);
     bundle.deckTemplates.forEach((deck) => persistDeckTemplate(deck));
@@ -777,7 +773,6 @@ export default function App() {
         onAddToken={() => setModal("token")}
         onPlaceImage={() => setModal("placeImage")}
         onOpenMultiplayer={() => setModal("multiplayer")}
-        onSave={saveSession}
         onSaveGame={() => saveGame()}
         onLoad={() => setModal("sessions")}
         onExport={exportSession}
