@@ -63,7 +63,7 @@ export class ManualPeer implements PeerTransport {
   }
 
   async createOffer(): Promise<SignalCode> {
-    this.attachChannel(this.connection.createDataChannel("board-game-sandbox"));
+    this.attachChannel(this.connection.createDataChannel("cardgame-sandbox"));
     const offer = await this.connection.createOffer();
     await this.connection.setLocalDescription(offer);
     await waitForIceGathering(this.connection);

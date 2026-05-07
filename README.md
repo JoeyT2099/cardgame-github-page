@@ -1,6 +1,6 @@
-# Board Game Sandbox
+# Card Game Sandbox
 
-Board Game Sandbox is a lightweight browser tabletop simulator built with React, TypeScript, and Vite. It is designed to run as a static GitHub Pages site with no backend server.
+Card Game Sandbox is a lightweight browser tabletop simulator built with React, TypeScript, and Vite. It is designed to run as a static GitHub Pages site with no backend server.
 
 ## Features
 
@@ -42,7 +42,7 @@ This repo includes `.github/workflows/deploy.yml`. In GitHub:
 3. Set Source to GitHub Actions.
 4. Push to `main`.
 
-`vite.config.ts` sets the production base path to `/cardgame-github-page/`, which is the correct GitHub Pages project path for this repository.
+`vite.config.ts` sets the production base path to `/cardgame-sandbox/`, which is the correct GitHub Pages project path for this repository.
 
 ## Local Storage
 

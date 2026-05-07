@@ -47,7 +47,7 @@ export const stringifySessionBundle = (bundle: SessionBundle) => JSON.stringify(
 export const parseSessionBundle = (input: string): SessionBundle => {
   const value = JSON.parse(input) as Partial<SessionBundle>;
   if (value.version !== 1 || !value.session || !Array.isArray(value.assets) || !Array.isArray(value.deckTemplates)) {
-    throw new Error("Imported file is not a valid Board Game Sandbox session export.");
+    throw new Error("Imported file is not a valid Card Game Sandbox session export.");
   }
   return value as SessionBundle;
 };
@@ -69,7 +69,7 @@ export const stringifyDeckBundle = (bundle: DeckBundle) => JSON.stringify(bundle
 export const parseDeckBundle = (input: string): DeckBundle => {
   const value = JSON.parse(input) as Partial<DeckBundle>;
   if (value.version !== 1 || value.kind !== "deck" || !value.deck || !Array.isArray(value.assets)) {
-    throw new Error("Imported file is not a valid Board Game Sandbox deck export.");
+    throw new Error("Imported file is not a valid Card Game Sandbox deck export.");
   }
   return value as DeckBundle;
 };
