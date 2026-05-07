@@ -34,7 +34,7 @@ const effectiveZIndex = (layers: Layer[], layerId?: string, zIndex = 0): number 
   return (layer?.order ?? 0) * 1000 + zIndex;
 };
 
-const normalizeRotation = (rotation: number) => ((rotation % 360) + 360) % 360;
+const normalizeRotation = (rotation: number) => (Number.isFinite(rotation) ? rotation : 0);
 
 export function BoardCanvas({ session, assets, canvasRotation, zoom, canvasTabs, activeCanvasId, activeLayerId, onZoom, onCanvasRotation, onCanvas, onCreateCanvas, onDeleteCanvas, onRenameCanvas, onSelect, onMove, onDrawDeck }: BoardCanvasProps) {
   const assetMap = React.useMemo(() => new Map(assets.map((asset) => [asset.id, asset])), [assets]);
@@ -143,9 +143,16 @@ export function BoardCanvas({ session, assets, canvasRotation, zoom, canvasTabs,
           <input type="range" min="0.4" max="2.5" step="0.1" value={zoom} onChange={(event) => onZoom(Number(event.target.value))} />
           <button title="Zoom in." onClick={() => onZoom(Math.min(2.5, Number((zoom + 0.1).toFixed(2))))}>+</button>
           <button title="Reset zoom to 100%." onClick={() => onZoom(1)}>{Math.round(zoom * 100)}%</button>
-          <button title="Rotate the canvas left locally." onClick={() => onCanvasRotation(normalizeRotation(canvasRotation - 90))}>Rot -90</button>
-          <button title="Rotate the canvas right locally." onClick={() => onCanvasRotation(normalizeRotation(canvasRotation + 90))}>Rot +90</button>
-          <button title="Reset local canvas rotation." onClick={() => onCanvasRotation(0)}>{normalizeRotation(canvasRotation)} deg</button>
+          <label className="canvas-rotation-control">
+            Rotate
+            <input
+              type="number"
+              step="1"
+              value={canvasRotation}
+              onChange={(event) => onCanvasRotation(normalizeRotation(Number(event.target.value)))}
+            />
+          </label>
+          <button title="Reset local canvas rotation." onClick={() => onCanvasRotation(0)}>0 deg</button>
         </div>
         <div className="board-stage" style={{ transform: `translate(${pan.x}px, ${pan.y}px) rotate(${canvasRotation}deg) scale(${zoom})` }} onPointerDown={beginPan} onPointerMove={movePan} onPointerUp={endPan} onPointerCancel={endPan}>
         {boardAsset ? <img className="board-background" src={boardAsset.imageDataUrl} alt={boardAsset.name} /> : !hasBoardContent && <div className="empty-board">Place a board image or start placing pieces.</div>}

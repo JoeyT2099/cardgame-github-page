@@ -252,9 +252,21 @@ p {
   padding: 0 8px;
 }
 
-.board-zoom-controls input {
+.board-zoom-controls > input {
   width: 120px;
   max-width: 30vw;
+}
+
+.canvas-rotation-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #cbd5e1;
+}
+
+.canvas-rotation-control input {
+  width: 82px;
+  min-width: 0;
 }
 
 .board-background {
