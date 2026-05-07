@@ -1,4 +1,4 @@
-const DB_NAME = "board-game-sandbox";
+const DB_NAME = "cardgame-sandbox";
 const DB_VERSION = 2;
 
 export const STORES = {

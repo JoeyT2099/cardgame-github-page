@@ -32,9 +32,9 @@ import { loadCurrentSession, saveCurrentSession } from "./storage/sessionStorage
 type ModalName = "assets" | "setBoard" | "createDeck" | "addDeck" | "placeImage" | "token" | "games" | "multiplayer" | undefined;
 type PendingInvite = { peerId: string; offerCode: string; createdAt: number };
 
-const CLIENT_ID_KEY = "board-game-sandbox.clientId";
-const ASSIGNED_PLAYER_KEY = "board-game-sandbox.assignedPlayerId";
-const JOIN_SEAT_KEY = "board-game-sandbox.joinSeat";
+const CLIENT_ID_KEY = "cardgame-sandbox.clientId";
+const ASSIGNED_PLAYER_KEY = "cardgame-sandbox.assignedPlayerId";
+const JOIN_SEAT_KEY = "cardgame-sandbox.joinSeat";
 
 const getStoredValue = (key: string) => {
   try {

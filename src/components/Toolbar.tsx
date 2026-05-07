@@ -22,7 +22,7 @@ interface ToolbarProps {
 export function Toolbar(props: ToolbarProps) {
   return (
     <header className="toolbar">
-      <strong>Board Game Sandbox</strong>
+      <strong>Card Game Sandbox</strong>
       <button title="Open the asset library." onClick={props.onOpenAssets}>Asset Library</button>
       <button title="Choose and place a board image." onClick={props.onSetBoard}>Add Board</button>
       <button title="Create or edit saved decks." onClick={props.onCreateDeck}>Create Deck</button>
