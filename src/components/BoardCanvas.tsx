@@ -10,12 +10,13 @@ import { TokenView } from "./TokenView";
 interface BoardCanvasProps {
   session: GameSession;
   assets: AssetTemplate[];
-  perspectiveRotation: number;
+  canvasRotation: number;
   zoom: number;
   canvasTabs: CanvasTab[];
   activeCanvasId: string;
   activeLayerId: string;
   onZoom: (zoom: number) => void;
+  onCanvasRotation: (rotation: number) => void;
   onCanvas: (canvasId: string) => void;
   onCreateCanvas: () => void;
   onDeleteCanvas: (canvasId: string) => void;
@@ -33,7 +34,9 @@ const effectiveZIndex = (layers: Layer[], layerId?: string, zIndex = 0): number 
   return (layer?.order ?? 0) * 1000 + zIndex;
 };
 
-export function BoardCanvas({ session, assets, perspectiveRotation, zoom, canvasTabs, activeCanvasId, activeLayerId, onZoom, onCanvas, onCreateCanvas, onDeleteCanvas, onRenameCanvas, onSelect, onMove, onDrawDeck }: BoardCanvasProps) {
+const normalizeRotation = (rotation: number) => ((rotation % 360) + 360) % 360;
+
+export function BoardCanvas({ session, assets, canvasRotation, zoom, canvasTabs, activeCanvasId, activeLayerId, onZoom, onCanvasRotation, onCanvas, onCreateCanvas, onDeleteCanvas, onRenameCanvas, onSelect, onMove, onDrawDeck }: BoardCanvasProps) {
   const assetMap = React.useMemo(() => new Map(assets.map((asset) => [asset.id, asset])), [assets]);
   const boardAsset = session.boardAssetId ? assetMap.get(session.boardAssetId) : undefined;
   const { layers } = session;
@@ -140,8 +143,11 @@ export function BoardCanvas({ session, assets, perspectiveRotation, zoom, canvas
           <input type="range" min="0.4" max="2.5" step="0.1" value={zoom} onChange={(event) => onZoom(Number(event.target.value))} />
           <button title="Zoom in." onClick={() => onZoom(Math.min(2.5, Number((zoom + 0.1).toFixed(2))))}>+</button>
           <button title="Reset zoom to 100%." onClick={() => onZoom(1)}>{Math.round(zoom * 100)}%</button>
+          <button title="Rotate the canvas left locally." onClick={() => onCanvasRotation(normalizeRotation(canvasRotation - 90))}>Rot -90</button>
+          <button title="Rotate the canvas right locally." onClick={() => onCanvasRotation(normalizeRotation(canvasRotation + 90))}>Rot +90</button>
+          <button title="Reset local canvas rotation." onClick={() => onCanvasRotation(0)}>{normalizeRotation(canvasRotation)} deg</button>
         </div>
-        <div className="board-stage" style={{ transform: `translate(${pan.x}px, ${pan.y}px) rotate(${perspectiveRotation}deg) scale(${zoom})` }} onPointerDown={beginPan} onPointerMove={movePan} onPointerUp={endPan} onPointerCancel={endPan}>
+        <div className="board-stage" style={{ transform: `translate(${pan.x}px, ${pan.y}px) rotate(${canvasRotation}deg) scale(${zoom})` }} onPointerDown={beginPan} onPointerMove={movePan} onPointerUp={endPan} onPointerCancel={endPan}>
         {boardAsset ? <img className="board-background" src={boardAsset.imageDataUrl} alt={boardAsset.name} /> : !hasBoardContent && <div className="empty-board">Place a board image or start placing pieces.</div>}
         {session.placedImageInstances
           .filter((image) => isOnActiveCanvas(image.canvasId) && !isHidden(image.layerId))
@@ -151,7 +157,7 @@ export function BoardCanvas({ session, assets, perspectiveRotation, zoom, canvas
               image={{ ...image, zIndex: effectiveZIndex(layers, image.layerId, image.zIndex) }}
               asset={assetMap.get(image.assetId)}
               selected={session.selectedObjectId === image.id && canInteract(image.layerId)}
-              perspectiveRotation={perspectiveRotation}
+              perspectiveRotation={canvasRotation}
               movementScale={zoom}
               interactive={canInteract(image.layerId)}
               onSelect={canInteract(image.layerId) ? () => onSelect(image.id) : noop}
@@ -165,7 +171,7 @@ export function BoardCanvas({ session, assets, perspectiveRotation, zoom, canvas
               key={deck.id}
               deck={{ ...deck, zIndex: effectiveZIndex(layers, deck.layerId, deck.zIndex) }}
               selected={session.selectedObjectId === deck.id && canInteract(deck.layerId)}
-              perspectiveRotation={perspectiveRotation}
+              perspectiveRotation={canvasRotation}
               movementScale={zoom}
               interactive={canInteract(deck.layerId)}
               onSelect={canInteract(deck.layerId) ? () => onSelect(deck.id) : noop}
@@ -180,7 +186,7 @@ export function BoardCanvas({ session, assets, perspectiveRotation, zoom, canvas
               key={pile.id}
               pile={{ ...pile, zIndex: effectiveZIndex(layers, pile.layerId, pile.zIndex) }}
               selected={session.selectedObjectId === pile.id && canInteract(pile.layerId)}
-              perspectiveRotation={perspectiveRotation}
+              perspectiveRotation={canvasRotation}
               movementScale={zoom}
               interactive={canInteract(pile.layerId)}
               onSelect={canInteract(pile.layerId) ? () => onSelect(pile.id) : noop}
@@ -196,7 +202,7 @@ export function BoardCanvas({ session, assets, perspectiveRotation, zoom, canvas
               asset={assetMap.get(card.assetId)}
               backAsset={card.backAssetId ? assetMap.get(card.backAssetId) : undefined}
               selected={session.selectedObjectId === card.id && canInteract(card.layerId)}
-              perspectiveRotation={perspectiveRotation}
+              perspectiveRotation={canvasRotation}
               movementScale={zoom}
               interactive={canInteract(card.layerId)}
               onSelect={canInteract(card.layerId) ? () => onSelect(card.id) : noop}
@@ -211,7 +217,7 @@ export function BoardCanvas({ session, assets, perspectiveRotation, zoom, canvas
               token={{ ...token, zIndex: effectiveZIndex(layers, token.layerId, token.zIndex) }}
               asset={token.assetId ? assetMap.get(token.assetId) : undefined}
               selected={session.selectedObjectId === token.id && canInteract(token.layerId)}
-              perspectiveRotation={perspectiveRotation}
+              perspectiveRotation={canvasRotation}
               movementScale={zoom}
               interactive={canInteract(token.layerId)}
               onSelect={canInteract(token.layerId) ? () => onSelect(token.id) : noop}

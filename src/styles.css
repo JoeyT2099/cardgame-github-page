@@ -234,10 +234,12 @@ p {
   z-index: 1200;
   right: 12px;
   top: 12px;
-  display: grid;
-  grid-template-columns: 34px 120px 34px 58px;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 6px;
+  max-width: calc(100% - 24px);
   padding: 6px;
   border: 1px solid #374151;
   border-radius: 7px;
@@ -251,7 +253,8 @@ p {
 }
 
 .board-zoom-controls input {
-  width: 100%;
+  width: 120px;
+  max-width: 30vw;
 }
 
 .board-background {

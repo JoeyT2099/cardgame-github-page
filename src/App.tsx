@@ -76,11 +76,6 @@ const shuffleItems = <T,>(items: T[]) => {
   return shuffled;
 };
 
-const getPerspectiveRotation = (session: GameSession, playerId: string) => {
-  const index = Math.max(0, session.players.findIndex((player) => player.id === playerId));
-  return (index * 360) / Math.max(1, session.players.length);
-};
-
 const lobbyForLocalMode = (lobby: LobbyState, mode: AppMode): LobbyState =>
   mode === "join" ? { ...lobby, mode: "join" } : lobby;
 
@@ -129,6 +124,7 @@ export default function App() {
   const [activeLayerId, setActiveLayerId] = React.useState<string>(LAYER_IDS.cards);
   const [activeCanvasId, setActiveCanvasId] = React.useState<string>(MAIN_CANVAS_ID);
   const [boardZoom, setBoardZoom] = React.useState(1);
+  const [boardRotation, setBoardRotation] = React.useState(0);
   const [perspectivePlayerId, setPerspectivePlayerId] = React.useState<string>(session.activePlayerId);
 
   // Keep activeLayerId valid when layers change (e.g. after loading a session)
@@ -209,8 +205,6 @@ export default function App() {
     const localLobbyPlayer = lobby.players.find((p) => p.playerId === localLobbyPlayerId);
     return getSessionPlayerIdForLobbyPlayer(session, localLobbyPlayer);
   }, [mode, perspectivePlayerId, lobby, localLobbyPlayerId, session.players]);
-
-  const boardPerspectivePlayerId = mode === "local" ? perspectivePlayerId : localPlayerId || perspectivePlayerId;
 
   const updateLocalLobbyPlayer = (updates: { name?: string; color?: string; ready?: boolean }) => {
     const targetPlayerId = localLobbyPlayerId || lobby.players.find((player) => player.clientId === clientId)?.playerId;
@@ -830,12 +824,13 @@ export default function App() {
         <BoardCanvas
           session={session}
           assets={assets}
-          perspectiveRotation={getPerspectiveRotation(session, boardPerspectivePlayerId)}
+          canvasRotation={boardRotation}
           zoom={boardZoom}
           canvasTabs={session.canvasTabs}
           activeCanvasId={activeCanvasId}
           activeLayerId={activeLayerId}
           onZoom={setBoardZoom}
+          onCanvasRotation={setBoardRotation}
           onCanvas={setActiveCanvasId}
           onCreateCanvas={createCanvas}
           onDeleteCanvas={deleteCanvas}
