@@ -1,26 +1,35 @@
 import { stringifySessionBundle } from "../storage/importExport";
 import type { GameSession, SavedGameRecord, SessionBundle } from "../types/game";
-import type { SavedSessionRecord } from "../storage/sessionStorage";
 
 interface SessionManagerModalProps {
-  sessions: SavedSessionRecord[];
   games: SavedGameRecord[];
   currentSession: GameSession;
   onClose: () => void;
-  onLoad: (session: GameSession) => void;
-  onDelete: (id: string) => void;
   onSaveGame: (name: string) => void;
   onLoadGame: (bundle: SessionBundle) => void;
   onDeleteGame: (id: string) => void;
 }
 
-export function SessionManagerModal({ sessions, games, currentSession, onClose, onLoad, onDelete, onSaveGame, onLoadGame, onDeleteGame }: SessionManagerModalProps) {
+const fileSafeName = (name: string, fallback: string) => name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || fallback;
+
+export function SessionManagerModal({ games, currentSession, onClose, onSaveGame, onLoadGame, onDeleteGame }: SessionManagerModalProps) {
   const exportGame = (game: SavedGameRecord) => {
-    const blob = new Blob([stringifySessionBundle(game.bundle)], { type: "application/json" });
+    const exportName = window.prompt("Export game name", game.name);
+    if (exportName === null) return;
+    const trimmedName = exportName.trim();
+    if (!trimmedName) return;
+    const bundle: SessionBundle = {
+      ...game.bundle,
+      kind: "game",
+      name: trimmedName,
+      exportedAt: Date.now(),
+      session: { ...game.bundle.session, name: trimmedName }
+    };
+    const blob = new Blob([stringifySessionBundle(bundle)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${game.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase() || "game"}.game.json`;
+    link.download = `${fileSafeName(trimmedName, "game")}.game.json`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -29,8 +38,8 @@ export function SessionManagerModal({ sessions, games, currentSession, onClose, 
     <div className="modal-backdrop" role="dialog" aria-modal="true">
       <div className="modal">
         <div className="modal-header">
-          <h2>Sessions & Games</h2>
-          <button title="Close saved sessions." onClick={onClose}>Close</button>
+          <h2>Games</h2>
+          <button title="Close saved games." onClick={onClose}>Close</button>
         </div>
         <section className="manager-section">
           <div className="manager-heading">
@@ -60,22 +69,6 @@ export function SessionManagerModal({ sessions, games, currentSession, onClose, 
               </article>
             ))}
           </div>
-        </section>
-        <section className="manager-section">
-          <h3>Saved Sessions</h3>
-        <div className="session-list">
-          {sessions.length === 0 && <p>No saved sessions yet.</p>}
-          {sessions.map((record) => (
-            <article key={record.id} className="session-row">
-              <div>
-                <strong>{record.name}</strong>
-                <span>{new Date(record.updatedAt).toLocaleString()}</span>
-              </div>
-              <button title="Load this saved session." onClick={() => onLoad(record.session)}>Load</button>
-              <button className="danger" title="Delete this saved session." onClick={() => onDelete(record.id)}>Delete</button>
-            </article>
-          ))}
-        </div>
         </section>
         <p className="muted">Current table: {currentSession.name}</p>
       </div>

@@ -27,9 +27,9 @@ import { getAssets, saveAsset, deleteAsset } from "./storage/assetStorage";
 import { deleteDeckTemplate, getDeckTemplates, saveDeckTemplate } from "./storage/deckStorage";
 import { deleteSavedGame, getSavedGames, saveGameBundle } from "./storage/gameStorage";
 import { createDeckBundle, createSessionBundle, mergeById, parseDeckBundle, parseSessionBundle, stringifyDeckBundle, stringifySessionBundle } from "./storage/importExport";
-import { getSavedSessions, loadCurrentSession, saveCurrentSession, deleteSavedSession, type SavedSessionRecord } from "./storage/sessionStorage";
+import { loadCurrentSession, saveCurrentSession } from "./storage/sessionStorage";
 
-type ModalName = "assets" | "setBoard" | "createDeck" | "addDeck" | "placeImage" | "token" | "sessions" | "multiplayer" | undefined;
+type ModalName = "assets" | "setBoard" | "createDeck" | "addDeck" | "placeImage" | "token" | "games" | "multiplayer" | undefined;
 type PendingInvite = { peerId: string; offerCode: string; createdAt: number };
 
 const CLIENT_ID_KEY = "board-game-sandbox.clientId";
@@ -102,7 +102,6 @@ const getSessionPlayerIdForLobbyPlayer = (session: GameSession, lobbyPlayer?: Lo
 export default function App() {
   const [assets, setAssets] = React.useState<AssetTemplate[]>([]);
   const [deckTemplates, setDeckTemplates] = React.useState<DeckTemplate[]>([]);
-  const [savedSessions, setSavedSessions] = React.useState<SavedSessionRecord[]>([]);
   const [savedGames, setSavedGames] = React.useState<SavedGameRecord[]>([]);
   const [session, dispatchBase] = React.useReducer(gameReducer, createEmptySession(2, "Local Session"));
   const sessionRef = React.useRef(session);
@@ -228,11 +227,10 @@ export default function App() {
   };
 
   React.useEffect(() => {
-    Promise.all([getAssets(), getDeckTemplates(), getSavedSessions(), getSavedGames(), loadCurrentSession()])
-      .then(([loadedAssets, loadedDecks, loadedSessions, loadedGames, current]) => {
+    Promise.all([getAssets(), getDeckTemplates(), getSavedGames(), loadCurrentSession()])
+      .then(([loadedAssets, loadedDecks, loadedGames, current]) => {
         setAssets(loadedAssets);
         setDeckTemplates(loadedDecks);
-        setSavedSessions(loadedSessions);
         setSavedGames(loadedGames);
         if (current) dispatchBase(createAction("LOAD_SESSION", current, clientId));
       })
@@ -596,12 +594,16 @@ export default function App() {
   };
 
   const exportSession = () => {
-    const bundle = createSessionBundle(session, assets, deckTemplates, { kind: "game", name: session.name });
+    const exportName = window.prompt("Export game name", session.name);
+    if (exportName === null) return;
+    const trimmedName = exportName.trim();
+    if (!trimmedName) return;
+    const bundle = createSessionBundle({ ...session, name: trimmedName }, assets, deckTemplates, { kind: "game", name: trimmedName });
     const blob = new Blob([stringifySessionBundle(bundle)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${session.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase() || "session"}.json`;
+    link.download = `${trimmedName.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "game"}.game.json`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -774,7 +776,7 @@ export default function App() {
         onPlaceImage={() => setModal("placeImage")}
         onOpenMultiplayer={() => setModal("multiplayer")}
         onSaveGame={() => saveGame()}
-        onLoad={() => setModal("sessions")}
+        onLoad={() => setModal("games")}
         onExport={exportSession}
         onImport={() => importInputRef.current?.click()}
         onNewSession={newSession}
@@ -909,14 +911,11 @@ export default function App() {
         />
       )}
       {modal === "addDeck" && <AddDeckModal deckTemplates={deckTemplates} onClose={() => setModal(undefined)} onAdd={addDeckInstance} />}
-      {modal === "sessions" && (
+      {modal === "games" && (
         <SessionManagerModal
-          sessions={savedSessions}
           games={savedGames}
           currentSession={session}
           onClose={() => setModal(undefined)}
-          onLoad={(next) => { applyAction(createAction("LOAD_SESSION", next, clientId)); setModal(undefined); }}
-          onDelete={(id) => deleteSavedSession(id).then(() => getSavedSessions().then(setSavedSessions))}
           onSaveGame={saveGame}
           onLoadGame={loadGameBundle}
           onDeleteGame={(id) => deleteSavedGame(id).then(() => getSavedGames().then(setSavedGames))}
