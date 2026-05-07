@@ -399,10 +399,6 @@ p {
   clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
 }
 
-.token-image-object img {
-  object-fit: cover;
-}
-
 .placed-image-object {
   background: transparent;
   border-color: transparent;
@@ -410,20 +406,18 @@ p {
   box-shadow: none;
 }
 
-.placed-image-object img,
-.token-image-object img {
+.placed-image-object img {
   object-fit: fill;
+}
+
+.token-image-object img {
+  object-fit: cover;
 }
 
 .token-image-object {
   background: transparent;
   border-color: transparent;
-  border-radius: 0;
   box-shadow: none;
-}
-
-.token-generic-object {
-  border-radius: 50%;
 }
 
 .hands-panel {
