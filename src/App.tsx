@@ -120,12 +120,40 @@ export default function App() {
   const modeRef = React.useRef<AppMode>("local");
   const lobbyRef = React.useRef(lobby);
   const lastHostRefreshAtRef = React.useRef(0);
+  const boardViewCenterRef = React.useRef({ x: 600, y: 360 });
   const importInputRef = React.useRef<HTMLInputElement>(null);
   const [activeLayerId, setActiveLayerId] = React.useState<string>(LAYER_IDS.cards);
   const [activeCanvasId, setActiveCanvasId] = React.useState<string>(MAIN_CANVAS_ID);
   const [boardZoom, setBoardZoom] = React.useState(1);
   const [boardRotation, setBoardRotation] = React.useState(0);
   const [perspectivePlayerId, setPerspectivePlayerId] = React.useState<string>(session.activePlayerId);
+
+  const updateBoardViewCenter = React.useCallback((point: { x: number; y: number }) => {
+    boardViewCenterRef.current = point;
+  }, []);
+
+  const centeredPlacement = (width: number, height: number) => ({
+    x: Math.round(boardViewCenterRef.current.x - width / 2),
+    y: Math.round(boardViewCenterRef.current.y - height / 2)
+  });
+
+  const placedAssetIds = React.useMemo(() => {
+    const ids: string[] = [];
+    if (session.boardAssetId) ids.push(session.boardAssetId);
+    session.placedImageInstances
+      .filter((image) => !image.canvasId || image.canvasId === activeCanvasId)
+      .forEach((image) => ids.push(image.assetId));
+    session.tokenInstances
+      .filter((token) => (!token.canvasId || token.canvasId === activeCanvasId) && token.assetId)
+      .forEach((token) => token.assetId && ids.push(token.assetId));
+    session.cardInstances
+      .filter((card) => card.location === "board" && (!card.canvasId || card.canvasId === activeCanvasId))
+      .forEach((card) => {
+        ids.push(card.assetId);
+        if (card.backAssetId) ids.push(card.backAssetId);
+      });
+    return ids;
+  }, [activeCanvasId, session.boardAssetId, session.cardInstances, session.placedImageInstances, session.tokenInstances]);
 
   // Keep activeLayerId valid when layers change (e.g. after loading a session)
   React.useEffect(() => {
@@ -352,26 +380,30 @@ export default function App() {
   const placeBoardImage = (assetId: string, width = 720, height = 420) => {
     const asset = assets.find((item) => item.id === assetId);
     if (asset) addAssets([{ ...asset, sharedInSession: true }]);
-    applyAction(createAction("PLACE_IMAGE", { id: crypto.randomUUID(), assetId, x: 120, y: 90, width, height, layerId: LAYER_IDS.board, canvasId: activeCanvasId }, clientId));
+    const { x, y } = centeredPlacement(width, height);
+    applyAction(createAction("PLACE_IMAGE", { id: crypto.randomUUID(), assetId, x, y, width, height, layerId: LAYER_IDS.board, canvasId: activeCanvasId }, clientId));
     setModal(undefined);
   };
 
   const placeImage = (assetId: string, width = 180, height = 140) => {
     const asset = assets.find((item) => item.id === assetId);
     if (asset) addAssets([{ ...asset, sharedInSession: true }]);
-    applyAction(createAction("PLACE_IMAGE", { id: crypto.randomUUID(), assetId, x: 180, y: 150, width, height, layerId: activeLayerId, canvasId: activeCanvasId }, clientId));
+    const { x, y } = centeredPlacement(width, height);
+    applyAction(createAction("PLACE_IMAGE", { id: crypto.randomUUID(), assetId, x, y, width, height, layerId: activeLayerId, canvasId: activeCanvasId }, clientId));
     setModal(undefined);
   };
 
   const createTokenFromAsset = (assetId: string, width = 64, height = 64, shape: TokenShape = "square") => {
     const asset = assets.find((item) => item.id === assetId);
     if (asset) addAssets([{ ...asset, sharedInSession: true }]);
-    applyAction(createAction("CREATE_TOKEN", { id: crypto.randomUUID(), assetId, shape, x: 220, y: 180, width, height, layerId: LAYER_IDS.tokens, canvasId: activeCanvasId }, clientId));
+    const { x, y } = centeredPlacement(width, height);
+    applyAction(createAction("CREATE_TOKEN", { id: crypto.randomUUID(), assetId, shape, x, y, width, height, layerId: LAYER_IDS.tokens, canvasId: activeCanvasId }, clientId));
     setModal(undefined);
   };
 
   const createGenericToken = (width = 64, height = 64, shape: TokenShape = "square") => {
-    applyAction(createAction("CREATE_TOKEN", { id: crypto.randomUUID(), label: "1", color: "hsl(45 93% 60%)", shape, x: 240, y: 220, width, height, layerId: LAYER_IDS.tokens, canvasId: activeCanvasId }, clientId));
+    const { x, y } = centeredPlacement(width, height);
+    applyAction(createAction("CREATE_TOKEN", { id: crypto.randomUUID(), label: "1", color: "hsl(45 93% 60%)", shape, x, y, width, height, layerId: LAYER_IDS.tokens, canvasId: activeCanvasId }, clientId));
     setModal(undefined);
   };
 
@@ -379,13 +411,15 @@ export default function App() {
     const nameInput = window.prompt("Discard pile name", "Discard");
     if (nameInput === null) return;
     const name = nameInput.trim();
-    applyAction(createAction("CREATE_DISCARD_PILE", { id: crypto.randomUUID(), name: name || "Discard", x: 260, y: 160, layerId: activeLayerId, canvasId: activeCanvasId }, clientId));
+    const { x, y } = centeredPlacement(112, 144);
+    applyAction(createAction("CREATE_DISCARD_PILE", { id: crypto.randomUUID(), name: name || "Discard", x, y, layerId: activeLayerId, canvasId: activeCanvasId }, clientId));
   };
 
   const addDeckInstance = (deck: DeckTemplate) => {
     const deckAssetIds = new Set([...deck.cardAssetIds, ...(deck.defaultBackAssetId ? [deck.defaultBackAssetId] : []), ...Object.values(deck.cardBackAssetIds ?? {})]);
     addAssets(assets.filter((asset) => deckAssetIds.has(asset.id)).map((asset) => ({ ...asset, sharedInSession: true })));
-    applyAction(createAction("ADD_DECK_INSTANCE", { id: crypto.randomUUID(), deckTemplateId: deck.id, name: deck.name, cardAssetIds: shuffleItems(deck.cardAssetIds), x: 120, y: 120, backAssetId: deck.defaultBackAssetId, layerId: activeLayerId, canvasId: activeCanvasId }, clientId));
+    const { x, y } = centeredPlacement(96, 136);
+    applyAction(createAction("ADD_DECK_INSTANCE", { id: crypto.randomUUID(), deckTemplateId: deck.id, name: deck.name, cardAssetIds: shuffleItems(deck.cardAssetIds), x, y, backAssetId: deck.defaultBackAssetId, layerId: activeLayerId, canvasId: activeCanvasId }, clientId));
     setModal(undefined);
   };
 
@@ -831,6 +865,7 @@ export default function App() {
           activeLayerId={activeLayerId}
           onZoom={setBoardZoom}
           onCanvasRotation={setBoardRotation}
+          onViewCenterChange={updateBoardViewCenter}
           onCanvas={setActiveCanvasId}
           onCreateCanvas={createCanvas}
           onDeleteCanvas={deleteCanvas}
@@ -872,11 +907,16 @@ export default function App() {
         perspectivePlayerId={perspectivePlayerId}
         onSetActivePlayer={(playerId) => applyAction(createAction("SET_ACTIVE_PLAYER", { playerId }, clientId))}
         onSetPerspectivePlayer={setPerspectivePlayerId}
-        onMoveCardToBoard={(cardId) => applyAction(createAction("MOVE_CARD_TO_BOARD", { cardId, x: 340, y: 240, canvasId: activeCanvasId }, clientId))}
+        onMoveCardToBoard={(cardId) => {
+          const card = session.cardInstances.find((item) => item.id === cardId);
+          const { x, y } = centeredPlacement(card?.width ?? 72, card?.height ?? 100);
+          applyAction(createAction("MOVE_CARD_TO_BOARD", { cardId, x, y, canvasId: activeCanvasId }, clientId));
+        }}
       />
       {(modal === "assets" || modal === "setBoard" || modal === "placeImage" || modal === "token") && (
         <AssetLibraryModal
           assets={assets}
+          placedAssetIds={placedAssetIds}
           mode={modal === "setBoard" ? "setBoard" : modal === "placeImage" ? "placeImage" : modal === "token" ? "token" : "browse"}
           onClose={() => setModal(undefined)}
           onUpload={addAssets}

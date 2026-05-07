@@ -5,6 +5,7 @@ import { FileUploadButton } from "./FileUploadButton";
 
 interface AssetLibraryModalProps {
   assets: AssetTemplate[];
+  placedAssetIds: string[];
   mode: "browse" | "setBoard" | "addToDeck" | "placeImage" | "token";
   onClose: () => void;
   onUpload: (assets: AssetTemplate[]) => void;
@@ -66,13 +67,20 @@ const tokenShapes: { label: string; value: TokenShape }[] = [
 export function AssetLibraryModal(props: AssetLibraryModalProps) {
   const [query, setQuery] = React.useState("");
   const [filter, setFilter] = React.useState<AssetFilter>("all");
+  const [libraryTab, setLibraryTab] = React.useState<"all" | "canvas">("all");
   const [size, setSize] = React.useState(() => getDefaultSize(props.mode));
   const [orientation, setOrientation] = React.useState<PlacementOrientation>("original");
   const [tokenShape, setTokenShape] = React.useState<TokenShape>("square");
+  const placedAssetCounts = React.useMemo(() => {
+    const counts = new Map<string, number>();
+    props.placedAssetIds.forEach((assetId) => counts.set(assetId, (counts.get(assetId) ?? 0) + 1));
+    return counts;
+  }, [props.placedAssetIds]);
   const filtered = props.assets.filter((asset) => {
     const matchesQuery = asset.name.toLowerCase().includes(query.toLowerCase());
     const matchesFilter = filter === "all" || asset.category === filter;
-    return matchesQuery && matchesFilter;
+    const matchesTab = libraryTab === "all" || placedAssetCounts.has(asset.id);
+    return matchesQuery && matchesFilter && matchesTab;
   });
 
   React.useEffect(() => {
@@ -116,6 +124,28 @@ export function AssetLibraryModal(props: AssetLibraryModalProps) {
           <h2>Asset Library</h2>
           <button title="Close the asset library." onClick={props.onClose}>Close</button>
         </div>
+        <div className="library-tabs" role="tablist" aria-label="Asset views">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={libraryTab === "all"}
+            className={libraryTab === "all" ? "active" : ""}
+            title="Show every asset in the library."
+            onClick={() => setLibraryTab("all")}
+          >
+            All Assets
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={libraryTab === "canvas"}
+            className={libraryTab === "canvas" ? "active" : ""}
+            title="Show only assets currently placed on the active canvas."
+            onClick={() => setLibraryTab("canvas")}
+          >
+            On Canvas <span>{placedAssetCounts.size}</span>
+          </button>
+        </div>
         <div className="library-tools">
           <FileUploadButton label="Upload Images" category={props.mode === "setBoard" ? "board" : props.mode === "token" ? "token" : "card"} onAssets={props.onUpload} onError={props.onError} />
           <input placeholder="Search assets" value={query} onChange={(event) => setQuery(event.target.value)} />
@@ -155,12 +185,17 @@ export function AssetLibraryModal(props: AssetLibraryModalProps) {
             </div>
           )}
         </div>
+        {libraryTab === "canvas" && placedAssetCounts.size === 0 && (
+          <div className="asset-empty-state">No asset-backed objects are placed on this canvas.</div>
+        )}
         <div className="asset-grid">
           {filtered.map((asset) => {
             const usage = props.getUsage?.(asset.id) ?? [];
+            const placedCount = placedAssetCounts.get(asset.id) ?? 0;
             return (
               <article className="asset-card" key={asset.id}>
                 <img src={asset.imageDataUrl} alt={asset.name} />
+                {libraryTab === "canvas" && <span className="asset-placement-badge">{placedCount} placed</span>}
                 <input value={asset.name} onChange={(event) => props.onRename(asset.id, event.target.value)} />
                 <select value={asset.category} onChange={(event) => props.onCategory(asset.id, event.target.value as AssetCategory)}>
                   <option value="card">Card</option>

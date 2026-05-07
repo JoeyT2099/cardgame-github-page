@@ -17,6 +17,7 @@ interface BoardCanvasProps {
   activeLayerId: string;
   onZoom: (zoom: number) => void;
   onCanvasRotation: (rotation: number) => void;
+  onViewCenterChange: (point: { x: number; y: number }) => void;
   onCanvas: (canvasId: string) => void;
   onCreateCanvas: () => void;
   onDeleteCanvas: (canvasId: string) => void;
@@ -36,7 +37,7 @@ const effectiveZIndex = (layers: Layer[], layerId?: string, zIndex = 0): number 
 
 const normalizeRotation = (rotation: number) => (Number.isFinite(rotation) ? rotation : 0);
 
-export function BoardCanvas({ session, assets, canvasRotation, zoom, canvasTabs, activeCanvasId, activeLayerId, onZoom, onCanvasRotation, onCanvas, onCreateCanvas, onDeleteCanvas, onRenameCanvas, onSelect, onMove, onDrawDeck }: BoardCanvasProps) {
+export function BoardCanvas({ session, assets, canvasRotation, zoom, canvasTabs, activeCanvasId, activeLayerId, onZoom, onCanvasRotation, onViewCenterChange, onCanvas, onCreateCanvas, onDeleteCanvas, onRenameCanvas, onSelect, onMove, onDrawDeck }: BoardCanvasProps) {
   const assetMap = React.useMemo(() => new Map(assets.map((asset) => [asset.id, asset])), [assets]);
   const boardAsset = session.boardAssetId ? assetMap.get(session.boardAssetId) : undefined;
   const { layers } = session;
@@ -51,7 +52,32 @@ export function BoardCanvas({ session, assets, canvasRotation, zoom, canvasTabs,
   const [pan, setPan] = React.useState({ x: 0, y: 0 });
   const [editingCanvasId, setEditingCanvasId] = React.useState<string>();
   const [editingCanvasName, setEditingCanvasName] = React.useState("");
+  const canvasRef = React.useRef<HTMLDivElement>(null);
   const panStart = React.useRef<{ pointerX: number; pointerY: number; x: number; y: number; moved: boolean } | undefined>(undefined);
+
+  const reportViewCenter = React.useCallback(() => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const scale = Math.max(0.1, zoom);
+    const screenDx = -pan.x / scale;
+    const screenDy = -pan.y / scale;
+    const radians = (-canvasRotation * Math.PI) / 180;
+    const cos = Math.cos(radians);
+    const sin = Math.sin(radians);
+    onViewCenterChange({
+      x: rect.width / 2 + screenDx * cos - screenDy * sin,
+      y: rect.height / 2 + screenDx * sin + screenDy * cos
+    });
+  }, [canvasRotation, onViewCenterChange, pan.x, pan.y, zoom]);
+
+  React.useEffect(() => {
+    reportViewCenter();
+  }, [activeCanvasId, reportViewCenter]);
+
+  React.useEffect(() => {
+    window.addEventListener("resize", reportViewCenter);
+    return () => window.removeEventListener("resize", reportViewCenter);
+  }, [reportViewCenter]);
 
   React.useEffect(() => {
     if (editingCanvasId && !canvasTabs.some((canvas) => canvas.id === editingCanvasId)) {
@@ -137,8 +163,9 @@ export function BoardCanvas({ session, assets, canvasRotation, zoom, canvasTabs,
         ))}
         <button className="canvas-add-button" title="Add a new canvas tab." onClick={onCreateCanvas}>+ Canvas</button>
       </div>
-      <div className="board-canvas" onPointerDown={beginPan} onPointerMove={movePan} onPointerUp={endPan} onPointerCancel={endPan}>
+      <div ref={canvasRef} className="board-canvas" onPointerDown={beginPan} onPointerMove={movePan} onPointerUp={endPan} onPointerCancel={endPan}>
         <div className="board-zoom-controls" onPointerDown={(event) => event.stopPropagation()}>
+          <button title="Return to the canvas origin point." onClick={() => setPan({ x: 0, y: 0 })}>Origin</button>
           <button title="Zoom out." onClick={() => onZoom(Math.max(0.4, Number((zoom - 0.1).toFixed(2))))}>-</button>
           <input type="range" min="0.4" max="2.5" step="0.1" value={zoom} onChange={(event) => onZoom(Number(event.target.value))} />
           <button title="Zoom in." onClick={() => onZoom(Math.min(2.5, Number((zoom + 0.1).toFixed(2))))}>+</button>

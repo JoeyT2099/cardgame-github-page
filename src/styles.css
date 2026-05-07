@@ -762,6 +762,40 @@ p {
   margin-bottom: 14px;
 }
 
+.library-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 12px;
+  border-bottom: 1px solid #303a47;
+}
+
+.library-tabs button {
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 7px 7px 0 0;
+  background: transparent;
+  color: #b6c2d0;
+  padding: 8px 12px;
+}
+
+.library-tabs button.active {
+  border-color: #303a47;
+  background: #202732;
+  color: #f8fafc;
+}
+
+.library-tabs span {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  margin-left: 6px;
+  border-radius: 999px;
+  background: #0e7490;
+  color: #e0f9ff;
+  font-size: 12px;
+}
+
 .placement-size-controls {
   grid-column: 1 / -1;
   display: flex;
@@ -808,12 +842,37 @@ p {
 }
 
 .asset-card {
+  position: relative;
   display: grid;
   grid-template-rows: 190px auto auto minmax(0, auto) auto;
   align-content: start;
   gap: 8px;
   min-height: 390px;
   overflow: hidden;
+}
+
+.asset-placement-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  padding: 4px 7px;
+  border: 1px solid #22d3ee;
+  border-radius: 999px;
+  background: rgba(8, 47, 73, 0.92);
+  color: #e0f9ff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.asset-empty-state {
+  display: grid;
+  place-items: center;
+  min-height: 140px;
+  margin-bottom: 14px;
+  border: 1px dashed #3d4653;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.45);
+  color: #b6c2d0;
 }
 
 .asset-card img,
