@@ -15,15 +15,20 @@ export const fileToAsset = (file: File, category: AssetCategory): Promise<AssetT
     reader.onerror = () => reject(new Error(`Failed to read ${file.name}.`));
     reader.onload = () => {
       const now = Date.now();
-      resolve({
+      const imageDataUrl = String(reader.result);
+      const assetBase = {
         id: crypto.randomUUID(),
         name: file.name.replace(/\.[^.]+$/, ""),
-        imageDataUrl: String(reader.result),
+        imageDataUrl,
         category,
         tags: [],
         createdAt: now,
         updatedAt: now
-      });
+      };
+      const image = new Image();
+      image.onload = () => resolve({ ...assetBase, originalWidth: image.naturalWidth, originalHeight: image.naturalHeight });
+      image.onerror = () => resolve(assetBase);
+      image.src = imageDataUrl;
     };
     reader.readAsDataURL(file);
   });

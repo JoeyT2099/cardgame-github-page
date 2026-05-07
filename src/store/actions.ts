@@ -11,6 +11,7 @@ export type GameActionType =
   | "ROTATE_OBJECT"
   | "RESIZE_OBJECT"
   | "DRAW_CARD"
+  | "REORDER_DECK_CARD"
   | "FLIP_CARD"
   | "MOVE_CARD_TO_BOARD"
   | "MOVE_CARD_TO_HAND"
@@ -18,6 +19,7 @@ export type GameActionType =
   | "CREATE_DISCARD_PILE"
   | "CREATE_TOKEN"
   | "UPDATE_TOKEN_COLOR"
+  | "UPDATE_TOKEN_SHAPE"
   | "PLACE_IMAGE"
   | "DELETE_OBJECT"
   | "DUPLICATE_OBJECT"
@@ -78,6 +80,7 @@ export interface DrawCardPayload {
   deckInstanceId: string;
   playerId: string;
   chosenCardAssetId: string;
+  chosenCardIndex: number;
   cardInstanceId: string;
   backAssetId?: string;
 }

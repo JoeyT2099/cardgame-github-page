@@ -24,16 +24,23 @@ export function PlayerHands({
   onMoveCardToBoard
 }: PlayerHandsProps) {
   const assetMap = React.useMemo(() => new Map(assets.map((asset) => [asset.id, asset])), [assets]);
-  const [previewAsset, setPreviewAsset] = React.useState<AssetTemplate>();
+  const [preview, setPreview] = React.useState<{ cardId: string; asset?: AssetTemplate }>();
   const viewPlayerId = isMultiplayer ? localPlayerId : perspectivePlayerId;
   const localPlayer = session.players.find((player) => player.id === localPlayerId);
-  const showPreview = (asset?: AssetTemplate) => setPreviewAsset(asset);
-  const hidePreview = () => setPreviewAsset(undefined);
+  const showPreview = (cardId: string, asset?: AssetTemplate) => setPreview({ cardId, asset });
+  const hidePreview = () => setPreview(undefined);
+
+  React.useEffect(() => {
+    if (!preview) return;
+    const owner = session.players.find((player) => player.handCardInstanceIds.includes(preview.cardId));
+    const cardStillInHand = Boolean(owner && session.cardInstances.some((card) => card.id === preview.cardId && card.location === "hand"));
+    if (!cardStillInHand) hidePreview();
+  }, [preview, session.players, session.cardInstances]);
 
   const renderHandPreview = () =>
-    previewAsset ? (
+    preview?.asset ? (
       <div className="hand-card-preview" aria-hidden="true">
-        <img src={previewAsset.imageDataUrl} alt="" />
+        <img src={preview.asset.imageDataUrl} alt="" />
       </div>
     ) : null;
 
@@ -70,10 +77,10 @@ export function PlayerHands({
                       key={cardId}
                       className="hand-card"
                       title="Place on Board"
-                      onClick={() => onMoveCardToBoard(cardId)}
-                      onMouseEnter={() => showPreview(asset)}
+                      onClick={() => { hidePreview(); onMoveCardToBoard(cardId); }}
+                      onMouseEnter={() => showPreview(cardId, asset)}
                       onMouseLeave={hidePreview}
-                      onFocus={() => showPreview(asset)}
+                      onFocus={() => showPreview(cardId, asset)}
                       onBlur={hidePreview}
                     >
                       {asset ? <img src={asset.imageDataUrl} alt={asset.name} /> : "?"}
@@ -150,10 +157,10 @@ export function PlayerHands({
                       key={cardId}
                       className="hand-card"
                       title="Place on Board"
-                      onClick={() => onMoveCardToBoard(cardId)}
-                      onMouseEnter={() => isViewing && showPreview(asset)}
+                      onClick={() => { hidePreview(); onMoveCardToBoard(cardId); }}
+                      onMouseEnter={() => isViewing && showPreview(cardId, asset)}
                       onMouseLeave={hidePreview}
-                      onFocus={() => isViewing && showPreview(asset)}
+                      onFocus={() => isViewing && showPreview(cardId, asset)}
                       onBlur={hidePreview}
                     >
                       {asset ? <img src={asset.imageDataUrl} alt={asset.name} /> : "Missing"}

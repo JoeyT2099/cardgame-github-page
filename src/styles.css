@@ -167,7 +167,7 @@ p {
 
 .canvas-tab {
   display: grid;
-  grid-template-columns: auto minmax(86px, 150px) 28px;
+  grid-template-columns: minmax(92px, 170px) 28px;
   align-items: center;
   gap: 4px;
   flex: 0 0 auto;
@@ -187,7 +187,7 @@ p {
   background: #0d2233;
 }
 
-.canvas-tab.active button:first-child {
+.canvas-tab.active .canvas-tab-label {
   background: #0e7490;
   border-color: #22d3ee;
 }
@@ -195,6 +195,12 @@ p {
 .canvas-tab input {
   min-width: 0;
   padding: 5px 7px;
+}
+
+.canvas-tab-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .board-canvas {
@@ -353,9 +359,33 @@ p {
 }
 
 .token-object {
-  border-radius: 50%;
+  border-radius: 4px;
   color: #111827;
   font-weight: 800;
+}
+
+.token-shape-square {
+  border-radius: 5px;
+}
+
+.token-shape-circle {
+  border-radius: 50%;
+}
+
+.token-shape-triangle {
+  clip-path: polygon(50% 2%, 98% 96%, 2% 96%);
+}
+
+.token-shape-hexagon {
+  clip-path: polygon(25% 4%, 75% 4%, 100% 50%, 75% 96%, 25% 96%, 0 50%);
+}
+
+.token-shape-octagon {
+  clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
+}
+
+.token-image-object img {
+  object-fit: cover;
 }
 
 .placed-image-object {
@@ -657,6 +687,11 @@ p {
 .placement-size-controls label {
   width: 86px;
   gap: 3px;
+}
+
+.placement-size-controls .placement-orientation-control,
+.placement-size-controls .placement-shape-control {
+  width: 132px;
 }
 
 .placement-size-controls input {
@@ -1055,6 +1090,14 @@ p {
   width: 100%;
 }
 
+.layer-default-badge {
+  margin-left: 6px;
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
 .mini-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1087,12 +1130,14 @@ p {
   color: #dbe5f0;
 }
 
-.discard-card-list {
+.discard-card-list,
+.contained-card-list {
   display: grid;
   gap: 6px;
 }
 
-.discard-card-row {
+.discard-card-row,
+.contained-card-row {
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr) auto auto;
   align-items: center;
@@ -1101,6 +1146,10 @@ p {
   border: 1px solid #2a3442;
   border-radius: 6px;
   background: #151c26;
+}
+
+.contained-card-row {
+  grid-template-columns: 34px minmax(0, 1fr) auto auto auto;
 }
 
 .discard-card-thumb {
@@ -1115,7 +1164,8 @@ p {
   font-size: 12px;
 }
 
-.discard-card-row span {
+.discard-card-row span,
+.contained-card-row span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1123,7 +1173,8 @@ p {
 }
 
 .discard-card-row button,
-.discard-card-row select {
+.discard-card-row select,
+.contained-card-row button {
   padding: 4px 6px;
   font-size: 12px;
 }

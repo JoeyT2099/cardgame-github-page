@@ -4,6 +4,8 @@ export interface AssetTemplate {
   id: string;
   name: string;
   imageDataUrl: string;
+  originalWidth?: number;
+  originalHeight?: number;
   category: AssetCategory;
   tags: string[];
   createdAt: number;

@@ -1,5 +1,6 @@
 import React from "react";
 import type { AssetCategory, AssetFilter, AssetTemplate } from "../types/assets";
+import type { TokenShape } from "../types/game";
 import { FileUploadButton } from "./FileUploadButton";
 
 interface AssetLibraryModalProps {
@@ -11,8 +12,8 @@ interface AssetLibraryModalProps {
   onDelete: (assetId: string) => void;
   onCategory: (assetId: string, category: AssetCategory) => void;
   onUseAsBoard: (assetId: string, width: number, height: number) => void;
-  onUseAsToken: (assetId: string, width: number, height: number) => void;
-  onCreateGenericToken: (width: number, height: number) => void;
+  onUseAsToken: (assetId: string, width: number, height: number, shape: TokenShape) => void;
+  onCreateGenericToken: (width: number, height: number, shape: TokenShape) => void;
   onAddToDeck: (assetId: string) => void;
   onPlaceOnBoard: (assetId: string, width: number, height: number) => void;
   getUsage?: (assetId: string) => string[];
@@ -34,10 +35,40 @@ const getDefaultSize = (mode: AssetLibraryModalProps["mode"]) => {
   return { width: 180, height: 140 };
 };
 
+type PlacementOrientation = "original" | "portrait" | "landscape" | "square";
+
+const applyOrientation = (base: { width: number; height: number }, orientation: PlacementOrientation) => {
+  const shortSide = Math.min(base.width, base.height);
+  const longSide = Math.max(base.width, base.height);
+  if (orientation === "portrait") return { width: shortSide, height: longSide };
+  if (orientation === "landscape") return { width: longSide, height: shortSide };
+  if (orientation === "square") return { width: longSide, height: longSide };
+  return base;
+};
+
+const fitToOriginalAspect = (asset: AssetTemplate, bounds: { width: number; height: number }) => {
+  if (!asset.originalWidth || !asset.originalHeight) return bounds;
+  const aspect = asset.originalWidth / asset.originalHeight;
+  const maxSide = Math.max(bounds.width, bounds.height);
+  return aspect >= 1
+    ? { width: maxSide, height: Math.max(24, Math.round(maxSide / aspect)) }
+    : { width: Math.max(24, Math.round(maxSide * aspect)), height: maxSide };
+};
+
+const tokenShapes: { label: string; value: TokenShape }[] = [
+  { label: "Square", value: "square" },
+  { label: "Circle", value: "circle" },
+  { label: "Triangle", value: "triangle" },
+  { label: "Hexagon", value: "hexagon" },
+  { label: "Octagon", value: "octagon" }
+];
+
 export function AssetLibraryModal(props: AssetLibraryModalProps) {
   const [query, setQuery] = React.useState("");
   const [filter, setFilter] = React.useState<AssetFilter>("all");
   const [size, setSize] = React.useState(() => getDefaultSize(props.mode));
+  const [orientation, setOrientation] = React.useState<PlacementOrientation>("original");
+  const [tokenShape, setTokenShape] = React.useState<TokenShape>("square");
   const filtered = props.assets.filter((asset) => {
     const matchesQuery = asset.name.toLowerCase().includes(query.toLowerCase());
     const matchesFilter = filter === "all" || asset.category === filter;
@@ -51,10 +82,18 @@ export function AssetLibraryModal(props: AssetLibraryModalProps) {
   }, [props.onClose]);
 
   React.useEffect(() => {
-    setSize(getDefaultSize(props.mode));
+    const nextOrientation = props.mode === "token" ? "square" : props.mode === "setBoard" ? "landscape" : "original";
+    setOrientation(nextOrientation);
+    setSize(applyOrientation(getDefaultSize(props.mode), nextOrientation));
+    setTokenShape("square");
     if (props.mode === "setBoard") setFilter("board");
     if (props.mode === "token") setFilter("token");
   }, [props.mode]);
+
+  const setPlacementOrientation = (nextOrientation: PlacementOrientation) => {
+    setOrientation(nextOrientation);
+    setSize(applyOrientation(getDefaultSize(props.mode), nextOrientation));
+  };
 
   const setDimension = (dimension: "width" | "height", value: number) => {
     setSize((current) => ({
@@ -67,6 +106,8 @@ export function AssetLibraryModal(props: AssetLibraryModalProps) {
   const boardSize = props.mode === "setBoard" ? size : getDefaultSize("setBoard");
   const tokenSize = props.mode === "token" ? size : getDefaultSize("token");
   const imageSize = props.mode === "placeImage" ? size : getDefaultSize("placeImage");
+  const getPlacementSize = (asset: AssetTemplate, baseSize: { width: number; height: number }) =>
+    orientation === "original" ? fitToOriginalAspect(asset, baseSize) : baseSize;
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true">
@@ -91,7 +132,26 @@ export function AssetLibraryModal(props: AssetLibraryModalProps) {
                 H
                 <input type="number" min="24" max="2000" value={size.height} onChange={(event) => setDimension("height", Number(event.target.value))} />
               </label>
-              {props.mode === "token" && <button type="button" onClick={() => props.onCreateGenericToken(size.width, size.height)}>Generic Token</button>}
+              <label className="placement-orientation-control">
+                Orientation
+                <select value={orientation} onChange={(event) => setPlacementOrientation(event.target.value as PlacementOrientation)}>
+                  <option value="original">Original</option>
+                  <option value="portrait">Portrait</option>
+                  <option value="landscape">Landscape</option>
+                  <option value="square">Square</option>
+                </select>
+              </label>
+              {props.mode === "token" && (
+                <>
+                  <label className="placement-shape-control">
+                    Shape
+                    <select value={tokenShape} onChange={(event) => setTokenShape(event.target.value as TokenShape)}>
+                      {tokenShapes.map((shape) => <option key={shape.value} value={shape.value}>{shape.label}</option>)}
+                    </select>
+                  </label>
+                  <button type="button" onClick={() => props.onCreateGenericToken(size.width, size.height, tokenShape)}>Generic Token</button>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -111,10 +171,19 @@ export function AssetLibraryModal(props: AssetLibraryModalProps) {
                 </select>
                 {usage.length > 0 && <small className="asset-usage">Used in {usage.join(", ")}</small>}
                 <div className="asset-actions">
-                  {(props.mode === "browse" || props.mode === "setBoard") && <button onClick={() => props.onUseAsBoard(asset.id, boardSize.width, boardSize.height)}>Use as Board</button>}
-                  {(props.mode === "browse" || props.mode === "token") && <button onClick={() => props.onUseAsToken(asset.id, tokenSize.width, tokenSize.height)}>Use as Token</button>}
+                  {(props.mode === "browse" || props.mode === "setBoard") && <button onClick={() => {
+                    const placementSize = getPlacementSize(asset, boardSize);
+                    props.onUseAsBoard(asset.id, placementSize.width, placementSize.height);
+                  }}>Use as Board</button>}
+                  {(props.mode === "browse" || props.mode === "token") && <button onClick={() => {
+                    const placementSize = getPlacementSize(asset, tokenSize);
+                    props.onUseAsToken(asset.id, placementSize.width, placementSize.height, tokenShape);
+                  }}>Use as Token</button>}
                   {(props.mode === "browse" || props.mode === "addToDeck") && <button onClick={() => props.onAddToDeck(asset.id)}>Add to Deck</button>}
-                  {(props.mode === "browse" || props.mode === "placeImage") && <button onClick={() => props.onPlaceOnBoard(asset.id, imageSize.width, imageSize.height)}>Place</button>}
+                  {(props.mode === "browse" || props.mode === "placeImage") && <button onClick={() => {
+                    const placementSize = getPlacementSize(asset, imageSize);
+                    props.onPlaceOnBoard(asset.id, placementSize.width, placementSize.height);
+                  }}>Place</button>}
                   <button className="danger asset-delete-button" onClick={() => props.onDelete(asset.id)}>Delete Asset</button>
                 </div>
               </article>

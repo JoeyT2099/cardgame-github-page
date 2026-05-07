@@ -16,7 +16,7 @@ import { gameReducer, resolveDrawAction } from "./store/gameReducer";
 import { createEmptySession, createLobby, createLobbyPlayer, createPlayers, LAYER_IDS, MAIN_CANVAS_ID } from "./store/initialState";
 import { findBoardObject } from "./store/selectors";
 import type { AssetCategory, AssetTemplate, DeckTemplate } from "./types/assets";
-import type { AnyBoardObject, GameSession, SavedGameRecord, SessionBundle } from "./types/game";
+import type { AnyBoardObject, GameSession, SavedGameRecord, SessionBundle, TokenShape } from "./types/game";
 import type { AppMode, LobbyState } from "./types/lobby";
 import { lobbyPlayerToGamePlayer } from "./types/lobby";
 import type { MultiplayerMessage, NetworkStatus, PeerConnectionStatus } from "./types/multiplayer";
@@ -126,8 +126,9 @@ export default function App() {
   // Keep activeLayerId valid when layers change (e.g. after loading a session)
   React.useEffect(() => {
     if (session.layers.length > 0 && !session.layers.find((l) => l.id === activeLayerId)) {
+      const defaultLayer = session.layers.find((layer) => layer.id === LAYER_IDS.default);
       const topLayer = session.layers.reduce((best, l) => (l.order > best.order ? l : best), session.layers[0]);
-      setActiveLayerId(topLayer.id);
+      setActiveLayerId(defaultLayer?.id ?? topLayer.id);
     }
   }, [session.layers, activeLayerId]);
 
@@ -283,7 +284,7 @@ export default function App() {
         }
       }
     }
-    const resolved = action.type === "DRAW_CARD" ? resolveDrawAction(sessionRef.current, deckTemplatesRef.current, action as GameAction<{ deckInstanceId: string; playerId: string }>) : action;
+    const resolved = action.type === "DRAW_CARD" ? resolveDrawAction(sessionRef.current, deckTemplatesRef.current, action as GameAction<{ deckInstanceId: string; playerId: string; chosenCardIndex?: number; drawMode?: "top" | "random" }>) : action;
     if (!resolved) {
       setError("Deck is empty or draw is invalid.");
       return;
@@ -361,15 +362,15 @@ export default function App() {
     setModal(undefined);
   };
 
-  const createTokenFromAsset = (assetId: string, width = 64, height = 64) => {
+  const createTokenFromAsset = (assetId: string, width = 64, height = 64, shape: TokenShape = "square") => {
     const asset = assets.find((item) => item.id === assetId);
     if (asset) addAssets([{ ...asset, sharedInSession: true }]);
-    applyAction(createAction("CREATE_TOKEN", { id: crypto.randomUUID(), assetId, x: 220, y: 180, width, height, layerId: LAYER_IDS.tokens, canvasId: activeCanvasId }, clientId));
+    applyAction(createAction("CREATE_TOKEN", { id: crypto.randomUUID(), assetId, shape, x: 220, y: 180, width, height, layerId: LAYER_IDS.tokens, canvasId: activeCanvasId }, clientId));
     setModal(undefined);
   };
 
-  const createGenericToken = (width = 64, height = 64) => {
-    applyAction(createAction("CREATE_TOKEN", { id: crypto.randomUUID(), label: "1", color: "hsl(45 93% 60%)", x: 240, y: 220, width, height, layerId: LAYER_IDS.tokens, canvasId: activeCanvasId }, clientId));
+  const createGenericToken = (width = 64, height = 64, shape: TokenShape = "square") => {
+    applyAction(createAction("CREATE_TOKEN", { id: crypto.randomUUID(), label: "1", color: "hsl(45 93% 60%)", shape, x: 240, y: 220, width, height, layerId: LAYER_IDS.tokens, canvasId: activeCanvasId }, clientId));
     setModal(undefined);
   };
 
@@ -448,14 +449,18 @@ export default function App() {
 
   // Layer helpers
   const getFallbackLayerId = (excludeLayerId: string): string => {
+    if (excludeLayerId !== LAYER_IDS.default && session.layers.some((layer) => layer.id === LAYER_IDS.default)) {
+      return LAYER_IDS.default;
+    }
     const other = session.layers.find((l) => l.id !== excludeLayerId);
-    return other?.id ?? excludeLayerId;
+    return other?.id ?? LAYER_IDS.default;
   };
 
   const createLayer = () =>
     applyAction(createAction("CREATE_LAYER", { id: crypto.randomUUID(), name: "New Layer" }, clientId));
 
   const deleteLayer = (layerId: string) => {
+    if (layerId === LAYER_IDS.default) return;
     const fallbackLayerId = getFallbackLayerId(layerId);
     applyAction(createAction("DELETE_LAYER", { layerId, fallbackLayerId }, clientId));
     if (activeLayerId === layerId) setActiveLayerId(fallbackLayerId);
@@ -492,13 +497,13 @@ export default function App() {
     if (activeCanvasId === canvasId) setActiveCanvasId(fallbackCanvasId);
   };
 
-  const drawDeck = (deckInstanceId: string) => {
-    const playerId = mode === "local" ? sessionRef.current.activePlayerId : localPlayerId;
+  const drawDeck = (deckInstanceId: string, playerIdOverride?: string, drawMode: "top" | "random" = "top", chosenCardIndex?: number) => {
+    const playerId = playerIdOverride || (mode === "local" ? sessionRef.current.activePlayerId : localPlayerId);
     if (!playerId) {
       setError("You have not been assigned a player slot yet.");
       return;
     }
-    const raw = createAction("DRAW_CARD", { deckInstanceId, playerId }, clientId);
+    const raw = createAction("DRAW_CARD", { deckInstanceId, playerId, drawMode, chosenCardIndex }, clientId);
     if (mode === "join") {
       clientSync.current?.send({ kind: "ACTION", action: raw });
       return;
@@ -783,6 +788,7 @@ export default function App() {
           <LayersPanel
             layers={session.layers}
             activeLayerId={activeLayerId}
+            defaultLayerId={LAYER_IDS.default}
             onActivate={setActiveLayerId}
             onToggleVisible={(layerId) => applyAction(createAction("TOGGLE_LAYER_VISIBILITY", { layerId }, clientId))}
             onToggleLock={(layerId) => applyAction(createAction("TOGGLE_LAYER_LOCK", { layerId }, clientId))}
@@ -843,8 +849,10 @@ export default function App() {
           onDrawDeck={drawDeck}
           onShuffleDeck={shuffleDeck}
           onResetDeck={resetDeck}
+          onReorderDeckCard={(deckInstanceId, fromIndex, toIndex) => applyAction(createAction("REORDER_DECK_CARD", { deckInstanceId, fromIndex, toIndex }, clientId))}
           onAssignLayer={(object, layerId) => applyAction(createAction("ASSIGN_LAYER", { objectType: object.type, objectId: object.id, layerId }, clientId))}
           onTokenColor={(tokenId, color) => applyAction(createAction("UPDATE_TOKEN_COLOR", { tokenId, color }, clientId))}
+          onTokenShape={(tokenId, shape) => applyAction(createAction("UPDATE_TOKEN_SHAPE", { tokenId, shape }, clientId))}
         />
       </div>
       <PlayerHands

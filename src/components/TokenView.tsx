@@ -14,9 +14,10 @@ interface TokenViewProps {
 }
 
 export function TokenView({ token, asset, selected, perspectiveRotation, movementScale = 1, interactive = true, onSelect, onDragEnd }: TokenViewProps) {
+  const shape = token.shape ?? "square";
   return (
     <DraggableObject
-      className={`board-object token-object ${asset ? "token-image-object" : "token-generic-object"} ${selected ? "selected" : ""}`}
+      className={`board-object token-object token-shape-${shape} ${asset ? "token-image-object" : "token-generic-object"} ${selected ? "selected" : ""}`}
       style={{
         left: token.x,
         top: token.y,

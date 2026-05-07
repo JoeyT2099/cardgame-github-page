@@ -2,6 +2,7 @@ import type { DeckTemplate } from "./assets";
 
 export type BoardObjectType = "deck" | "card" | "discard" | "token" | "image";
 export type CardLocation = "hand" | "board" | "discard";
+export type TokenShape = "square" | "circle" | "triangle" | "hexagon" | "octagon";
 
 export interface Layer {
   id: string;
@@ -56,6 +57,7 @@ export interface TokenInstance extends Omit<BoardObjectBase, "type"> {
   assetId?: string;
   label?: string;
   color?: string;
+  shape?: TokenShape;
 }
 
 export interface PlacedImageInstance extends Omit<BoardObjectBase, "type"> {

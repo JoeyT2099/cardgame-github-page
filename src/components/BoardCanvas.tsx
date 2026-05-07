@@ -46,7 +46,28 @@ export function BoardCanvas({ session, assets, perspectiveRotation, zoom, canvas
     session.tokenInstances.some((token) => isOnActiveCanvas(token.canvasId)) ||
     session.discardPiles.some((pile) => isOnActiveCanvas(pile.canvasId));
   const [pan, setPan] = React.useState({ x: 0, y: 0 });
+  const [editingCanvasId, setEditingCanvasId] = React.useState<string>();
+  const [editingCanvasName, setEditingCanvasName] = React.useState("");
   const panStart = React.useRef<{ pointerX: number; pointerY: number; x: number; y: number; moved: boolean } | undefined>(undefined);
+
+  React.useEffect(() => {
+    if (editingCanvasId && !canvasTabs.some((canvas) => canvas.id === editingCanvasId)) {
+      setEditingCanvasId(undefined);
+    }
+  }, [canvasTabs, editingCanvasId]);
+
+  const startCanvasRename = (canvas: CanvasTab) => {
+    onCanvas(canvas.id);
+    setEditingCanvasId(canvas.id);
+    setEditingCanvasName(canvas.name);
+  };
+
+  const commitCanvasRename = () => {
+    if (!editingCanvasId) return;
+    const trimmedName = editingCanvasName.trim();
+    onRenameCanvas(editingCanvasId, trimmedName || "Untitled");
+    setEditingCanvasId(undefined);
+  };
 
   const isHidden = (layerId?: string) => {
     const layer = getLayer(layers, layerId);
@@ -86,13 +107,28 @@ export function BoardCanvas({ session, assets, perspectiveRotation, zoom, canvas
       <div className="canvas-tabs" onPointerDown={(event) => event.stopPropagation()}>
         {canvasTabs.map((canvas) => (
           <div key={canvas.id} className={`canvas-tab${canvas.id === activeCanvasId ? " active" : ""}`}>
-            <button onClick={() => onCanvas(canvas.id)}>{canvas.name.trim() || "Untitled"}</button>
-            <input
-              aria-label={`Rename ${canvas.name}`}
-              value={canvas.name}
-              onChange={(event) => onRenameCanvas(canvas.id, event.target.value)}
-              onFocus={() => onCanvas(canvas.id)}
-            />
+            {editingCanvasId === canvas.id ? (
+              <input
+                aria-label={`Rename ${canvas.name}`}
+                autoFocus
+                value={editingCanvasName}
+                onChange={(event) => setEditingCanvasName(event.target.value)}
+                onBlur={commitCanvasRename}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") commitCanvasRename();
+                  if (event.key === "Escape") setEditingCanvasId(undefined);
+                }}
+              />
+            ) : (
+              <button
+                className="canvas-tab-label"
+                title="Double-click to rename"
+                onClick={() => onCanvas(canvas.id)}
+                onDoubleClick={() => startCanvasRename(canvas)}
+              >
+                {canvas.name.trim() || "Untitled"}
+              </button>
+            )}
             <button aria-label={`Delete ${canvas.name}`} disabled={canvasTabs.length <= 1} onClick={() => onDeleteCanvas(canvas.id)}>x</button>
           </div>
         ))}

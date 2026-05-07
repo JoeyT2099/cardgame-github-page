@@ -1,7 +1,7 @@
 import React from "react";
 import type { AssetTemplate } from "../types/assets";
 import type { DeckTemplate } from "../types/assets";
-import type { GameSession, AnyBoardObject } from "../types/game";
+import type { GameSession, AnyBoardObject, TokenShape } from "../types/game";
 import { findBoardObject } from "../store/selectors";
 
 interface ObjectInspectorProps {
@@ -19,11 +19,13 @@ interface ObjectInspectorProps {
   onMoveCardToHand: (cardId: string, playerId: string) => void;
   onMoveCardToDiscard: (cardId: string, discardPileId: string) => void;
   onRenameDiscard: (discardPileId: string, name: string) => void;
-  onDrawDeck: (deckInstanceId: string) => void;
+  onDrawDeck: (deckInstanceId: string, playerId?: string, drawMode?: "top" | "random", chosenCardIndex?: number) => void;
   onShuffleDeck: (deckInstanceId: string) => void;
   onResetDeck: (deckInstanceId: string) => void;
+  onReorderDeckCard: (deckInstanceId: string, fromIndex: number, toIndex: number) => void;
   onAssignLayer: (object: AnyBoardObject, layerId: string) => void;
   onTokenColor: (tokenId: string, color: string) => void;
+  onTokenShape: (tokenId: string, shape: TokenShape) => void;
 }
 
 const colorToHue = (color = "hsl(45 93% 60%)") => {
@@ -50,12 +52,21 @@ const colorToHue = (color = "hsl(45 93% 60%)") => {
 
 const tokenColorFromHue = (hue: number) => `hsl(${hue} 93% 60%)`;
 
+const tokenShapes: { label: string; value: TokenShape }[] = [
+  { label: "Square", value: "square" },
+  { label: "Circle", value: "circle" },
+  { label: "Triangle", value: "triangle" },
+  { label: "Hexagon", value: "hexagon" },
+  { label: "Octagon", value: "octagon" }
+];
+
 export function ObjectInspector(props: ObjectInspectorProps) {
   const object = findBoardObject(props.session, props.session.selectedObjectId);
   const [rotationInput, setRotationInput] = React.useState(0);
   const [widthInput, setWidthInput] = React.useState(0);
   const [heightInput, setHeightInput] = React.useState(0);
   const [previewAsset, setPreviewAsset] = React.useState<AssetTemplate>();
+  const [deckTargetPlayerId, setDeckTargetPlayerId] = React.useState("");
   const assetMap = React.useMemo(() => new Map(props.assets.map((asset) => [asset.id, asset])), [props.assets]);
 
   React.useEffect(() => {
@@ -63,6 +74,15 @@ export function ObjectInspector(props: ObjectInspectorProps) {
     setWidthInput(object?.width ?? 0);
     setHeightInput(object?.height ?? 0);
   }, [object?.id, object?.rotation, object?.width, object?.height]);
+
+  React.useEffect(() => {
+    setPreviewAsset(undefined);
+  }, [object?.id]);
+
+  React.useEffect(() => {
+    if (!deckTargetPlayerId || props.session.players.some((player) => player.id === deckTargetPlayerId)) return;
+    setDeckTargetPlayerId("");
+  }, [deckTargetPlayerId, props.session.players]);
 
   const discardPreview = previewAsset ? (
     <div className="hand-card-preview" aria-hidden="true">
@@ -130,10 +150,58 @@ export function ObjectInspector(props: ObjectInspectorProps) {
       )}
       {object.type === "deck" && (
         <div className="inspector-section">
-          <button onClick={() => props.onDrawDeck(object.id)}>Draw Random Card</button>
+          <label>
+            Draw To
+            <select value={deckTargetPlayerId} onChange={(event) => setDeckTargetPlayerId(event.target.value)}>
+              <option value="">Active / Your Hand</option>
+              {props.session.players.map((player) => <option key={player.id} value={player.id}>{player.name}</option>)}
+            </select>
+          </label>
+          <div className="button-row">
+            <button onClick={() => props.onDrawDeck(object.id, deckTargetPlayerId || undefined, "top")}>Draw Top</button>
+            <button onClick={() => props.onDrawDeck(object.id, deckTargetPlayerId || undefined, "random")}>Draw Random</button>
+          </div>
           <button onClick={() => props.onShuffleDeck(object.id)}>Shuffle Remaining</button>
           <button onClick={() => props.onResetDeck(object.id)}>Reset Deck</button>
           <p>{object.remainingCardAssetIds.length} cards remaining</p>
+          {object.remainingCardAssetIds.length === 0 && <p className="muted">Empty deck.</p>}
+          <div className="contained-card-list">
+            {object.remainingCardAssetIds.map((assetId, index) => {
+              const asset = assetMap.get(assetId);
+              return (
+                <div className="contained-card-row" key={`${assetId}-${index}`}>
+                  <div className="discard-card-thumb">
+                    {asset ? (
+                      <img
+                        src={asset.imageDataUrl}
+                        alt={asset.name}
+                        onMouseEnter={() => setPreviewAsset(asset)}
+                        onMouseLeave={() => setPreviewAsset(undefined)}
+                        onFocus={() => setPreviewAsset(asset)}
+                        onBlur={() => setPreviewAsset(undefined)}
+                        tabIndex={0}
+                      />
+                    ) : "?"}
+                  </div>
+                  <span title={asset?.name ?? "Missing card"}>{index + 1}. {asset?.name ?? "Missing card"}</span>
+                  <button disabled={index === 0} onClick={() => props.onReorderDeckCard(object.id, index, index - 1)}>Up</button>
+                  <button disabled={index === object.remainingCardAssetIds.length - 1} onClick={() => props.onReorderDeckCard(object.id, index, index + 1)}>Down</button>
+                  <button onClick={() => props.onDrawDeck(object.id, deckTargetPlayerId || undefined, "top", index)}>Hand</button>
+                </div>
+              );
+            })}
+          </div>
+          {discardPreview}
+        </div>
+      )}
+      {object.type === "token" && (
+        <div className="inspector-section">
+          <label>
+            Token Shape
+            <select value={object.shape ?? "square"} onChange={(event) => props.onTokenShape(object.id, event.target.value as TokenShape)}>
+              {tokenShapes.map((shape) => <option key={shape.value} value={shape.value}>{shape.label}</option>)}
+            </select>
+          </label>
         </div>
       )}
       {object.type === "token" && !object.assetId && (

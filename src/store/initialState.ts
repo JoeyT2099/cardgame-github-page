@@ -5,6 +5,7 @@ const colors = ["#f97316", "#22c55e", "#38bdf8", "#e879f9"];
 
 export const LAYER_IDS = {
   board: "layer-board",
+  default: "layer-default",
   cards: "layer-cards",
   tokens: "layer-tokens"
 } as const;
@@ -13,8 +14,9 @@ export const MAIN_CANVAS_ID = "canvas-main";
 
 export const DEFAULT_LAYERS: Layer[] = [
   { id: LAYER_IDS.board, name: "Board", visible: true, locked: false, order: 0 },
-  { id: LAYER_IDS.cards, name: "Cards", visible: true, locked: false, order: 1 },
-  { id: LAYER_IDS.tokens, name: "Tokens", visible: true, locked: false, order: 2 }
+  { id: LAYER_IDS.default, name: "Default", visible: true, locked: false, order: 1 },
+  { id: LAYER_IDS.cards, name: "Cards", visible: true, locked: false, order: 2 },
+  { id: LAYER_IDS.tokens, name: "Tokens", visible: true, locked: false, order: 3 }
 ];
 
 export const createPlayers = (count: 2 | 3 | 4): Player[] =>
