@@ -30,7 +30,7 @@ export function DeckInstanceView({ deck, selected, perspectiveRotation, movement
       onSelect={onSelect}
       onDragEnd={onDragEnd}
     >
-      <button className="object-fill-button" onDoubleClick={onDraw} onClick={onSelect}>
+      <button className="object-fill-button" title="Select this deck. Double-click to draw the top card." onDoubleClick={onDraw} onClick={onSelect}>
         <span>{deck.name}</span>
         <strong>{deck.remainingCardAssetIds.length}</strong>
       </button>

@@ -24,20 +24,20 @@ export function Toolbar(props: ToolbarProps) {
   return (
     <header className="toolbar">
       <strong>Board Game Sandbox</strong>
-      <button onClick={props.onOpenAssets}>Asset Library</button>
-      <button onClick={props.onSetBoard}>Add Board</button>
-      <button onClick={props.onCreateDeck}>Create Deck</button>
-      <button onClick={props.onAddDeck}>Add Deck</button>
-      <button onClick={props.onAddDiscard}>Add Discard Pile</button>
-      <button onClick={props.onAddToken}>Add Token</button>
-      <button onClick={props.onPlaceImage}>Place Image</button>
-      <button onClick={props.onOpenMultiplayer}>Multiplayer</button>
-      <button onClick={props.onSave}>Save Session</button>
-      <button onClick={props.onSaveGame}>Save Game</button>
-      <button onClick={props.onLoad}>Load Session</button>
-      <button onClick={props.onExport}>Export</button>
-      <button onClick={props.onImport}>Import</button>
-      <button className="danger subtle" onClick={props.onNewSession}>New Session</button>
+      <button title="Open the asset library." onClick={props.onOpenAssets}>Asset Library</button>
+      <button title="Choose and place a board image." onClick={props.onSetBoard}>Add Board</button>
+      <button title="Create or edit saved decks." onClick={props.onCreateDeck}>Create Deck</button>
+      <button title="Place a saved deck on the canvas." onClick={props.onAddDeck}>Add Deck</button>
+      <button title="Create a named discard pile." onClick={props.onAddDiscard}>Add Discard Pile</button>
+      <button title="Choose and place a token." onClick={props.onAddToken}>Add Token</button>
+      <button title="Place an image on the active layer." onClick={props.onPlaceImage}>Place Image</button>
+      <button title="Open multiplayer host and join controls." onClick={props.onOpenMultiplayer}>Multiplayer</button>
+      <button title="Save the current session." onClick={props.onSave}>Save Session</button>
+      <button title="Save the table as a reusable game." onClick={props.onSaveGame}>Save Game</button>
+      <button title="Open saved sessions and games." onClick={props.onLoad}>Load Session</button>
+      <button title="Export the current game file." onClick={props.onExport}>Export</button>
+      <button title="Import a session or game file." onClick={props.onImport}>Import</button>
+      <button className="danger subtle" title="Clear the table and start a new session." onClick={props.onNewSession}>New Session</button>
       {props.layers.length > 0 && (
         <label className="toolbar-layer-label">
           Active Layer:

@@ -4,13 +4,14 @@ import { fileToAsset } from "../storage/assetStorage";
 
 interface FileUploadButtonProps {
   label: string;
+  title?: string;
   category: AssetCategory;
   multiple?: boolean;
   onAssets: (assets: AssetTemplate[]) => void;
   onError: (message: string) => void;
 }
 
-export function FileUploadButton({ label, category, multiple = true, onAssets, onError }: FileUploadButtonProps) {
+export function FileUploadButton({ label, title, category, multiple = true, onAssets, onError }: FileUploadButtonProps) {
   const handleChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = [...(event.target.files ?? [])];
     event.target.value = "";
@@ -26,7 +27,7 @@ export function FileUploadButton({ label, category, multiple = true, onAssets, o
   };
 
   return (
-    <label className="button file-button">
+    <label className="button file-button" title={title ?? label}>
       {label}
       <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple={multiple} onChange={handleChange} />
     </label>

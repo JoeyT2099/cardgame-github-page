@@ -18,6 +18,7 @@ interface ObjectInspectorProps {
   onMoveCardToBoard: (cardId: string, x: number, y: number) => void;
   onMoveCardToHand: (cardId: string, playerId: string) => void;
   onMoveCardToDiscard: (cardId: string, discardPileId: string) => void;
+  onMoveCardToDeck: (cardId: string, deckInstanceId: string, position?: "top" | "bottom") => void;
   onRenameDiscard: (discardPileId: string, name: string) => void;
   onDrawDeck: (deckInstanceId: string, playerId?: string, drawMode?: "top" | "random", chosenCardIndex?: number) => void;
   onShuffleDeck: (deckInstanceId: string) => void;
@@ -66,8 +67,10 @@ export function ObjectInspector(props: ObjectInspectorProps) {
   const [widthInput, setWidthInput] = React.useState(0);
   const [heightInput, setHeightInput] = React.useState(0);
   const [previewAsset, setPreviewAsset] = React.useState<AssetTemplate>();
+  const [isExamining, setIsExamining] = React.useState(false);
   const [deckTargetPlayerId, setDeckTargetPlayerId] = React.useState("");
   const assetMap = React.useMemo(() => new Map(props.assets.map((asset) => [asset.id, asset])), [props.assets]);
+  const cardMap = React.useMemo(() => new Map(props.session.cardInstances.map((card) => [card.id, card])), [props.session.cardInstances]);
 
   React.useEffect(() => {
     setRotationInput(object?.rotation ?? 0);
@@ -77,6 +80,7 @@ export function ObjectInspector(props: ObjectInspectorProps) {
 
   React.useEffect(() => {
     setPreviewAsset(undefined);
+    setIsExamining(false);
   }, [object?.id]);
 
   React.useEffect(() => {
@@ -99,10 +103,58 @@ export function ObjectInspector(props: ObjectInspectorProps) {
     );
   }
 
-  const title = object.type === "deck" ? object.name : object.type;
+  const title = object.type === "deck" || object.type === "discard" ? object.name : object.type;
+  const examinedCardAsset = object.type === "card" ? assetMap.get(object.assetId) : undefined;
+  const examinedCardBackAsset = object.type === "card" && object.backAssetId ? assetMap.get(object.backAssetId) : undefined;
+  const examinedImageAsset = object.type === "image" ? assetMap.get(object.assetId) : undefined;
+  const examinedTokenAsset = object.type === "token" && object.assetId ? assetMap.get(object.assetId) : undefined;
+  const examinedDiscardTopCard =
+    object.type === "discard" && object.cardInstanceIds.length > 0
+      ? cardMap.get(object.cardInstanceIds[object.cardInstanceIds.length - 1])
+      : undefined;
+  const examinedDiscardAsset = examinedDiscardTopCard ? assetMap.get(examinedDiscardTopCard.assetId) : undefined;
+
+  const examinePreview = isExamining ? (
+    <div className="examine-preview" role="dialog" aria-label={`Examining ${title}`}>
+      <button title="Close the enlarged object preview." onClick={() => setIsExamining(false)}>Close</button>
+      {object.type === "card" && object.faceUp && examinedCardAsset && <img src={examinedCardAsset.imageDataUrl} alt={examinedCardAsset.name} />}
+      {object.type === "card" && (!object.faceUp || !examinedCardAsset) && (
+        examinedCardBackAsset ? <img src={examinedCardBackAsset.imageDataUrl} alt={examinedCardBackAsset.name} /> : <div className="generic-card-back">Card Back</div>
+      )}
+      {object.type === "image" && examinedImageAsset && <img src={examinedImageAsset.imageDataUrl} alt={examinedImageAsset.name} />}
+      {object.type === "token" && (
+        <div
+          className={`examine-token token-shape-${object.shape ?? "square"}`}
+          style={{ background: object.color ?? "hsl(45 93% 60%)" }}
+        >
+          {examinedTokenAsset ? <img src={examinedTokenAsset.imageDataUrl} alt={examinedTokenAsset.name} /> : <strong>{object.label ?? "Token"}</strong>}
+        </div>
+      )}
+      {object.type === "deck" && (
+        <div className="examine-placeholder">
+          <strong>{object.name}</strong>
+          <span>{object.remainingCardAssetIds.length} cards remaining</span>
+        </div>
+      )}
+      {object.type === "discard" && (
+        examinedDiscardAsset ? (
+          <>
+            <img src={examinedDiscardAsset.imageDataUrl} alt={examinedDiscardAsset.name} />
+            <span>{object.name} - {object.cardInstanceIds.length} cards</span>
+          </>
+        ) : (
+          <div className="examine-placeholder">
+            <strong>{object.name}</strong>
+            <span>Empty discard pile</span>
+          </div>
+        )
+      )}
+    </div>
+  ) : null;
 
   return (
     <aside className="inspector">
+      {examinePreview}
       <h2>Inspector</h2>
       <div className="selected-title">{title}</div>
       <label>
@@ -115,9 +167,9 @@ export function ObjectInspector(props: ObjectInspectorProps) {
         />
       </label>
       <div className="button-row">
-        <button onClick={() => props.onRotate(object, object.rotation - 15)}>Rotate -15</button>
-        <button onClick={() => props.onRotate(object, object.rotation + 15)}>Rotate +15</button>
-        <button onClick={() => props.onRotate(object, 0)}>Reset</button>
+        <button title="Rotate the selected object left." onClick={() => props.onRotate(object, object.rotation - 15)}>Rotate -15</button>
+        <button title="Rotate the selected object right." onClick={() => props.onRotate(object, object.rotation + 15)}>Rotate +15</button>
+        <button title="Reset object rotation." onClick={() => props.onRotate(object, 0)}>Reset</button>
       </div>
       <div className="size-grid">
         <label>
@@ -130,10 +182,11 @@ export function ObjectInspector(props: ObjectInspectorProps) {
         </label>
       </div>
       <div className="button-grid">
-        <button onClick={() => props.onFront(object)}>Bring to Front</button>
-        <button onClick={() => props.onBack(object)}>Send to Back</button>
-        {(object.type === "card" || object.type === "token" || object.type === "image") && <button onClick={() => props.onDuplicate(object)}>Duplicate</button>}
-        <button className="danger" onClick={() => props.onDelete(object)}>Delete</button>
+        <button title="Show a large preview of the selected object." onClick={() => setIsExamining(true)}>Examine</button>
+        <button title="Move object above others." onClick={() => props.onFront(object)}>Bring to Front</button>
+        <button title="Move object behind others." onClick={() => props.onBack(object)}>Send to Back</button>
+        {(object.type === "card" || object.type === "token" || object.type === "image") && <button title="Create a copy of this object." onClick={() => props.onDuplicate(object)}>Duplicate</button>}
+        <button className="danger" title="Delete the selected object." onClick={() => props.onDelete(object)}>Delete</button>
       </div>
       {props.session.layers.length > 0 && (
         <label>
@@ -158,11 +211,11 @@ export function ObjectInspector(props: ObjectInspectorProps) {
             </select>
           </label>
           <div className="button-row">
-            <button onClick={() => props.onDrawDeck(object.id, deckTargetPlayerId || undefined, "top")}>Draw Top</button>
-            <button onClick={() => props.onDrawDeck(object.id, deckTargetPlayerId || undefined, "random")}>Draw Random</button>
+            <button title="Draw the top card to the selected hand." onClick={() => props.onDrawDeck(object.id, deckTargetPlayerId || undefined, "top")}>Draw Top</button>
+            <button title="Draw a random card to the selected hand." onClick={() => props.onDrawDeck(object.id, deckTargetPlayerId || undefined, "random")}>Draw Random</button>
           </div>
-          <button onClick={() => props.onShuffleDeck(object.id)}>Shuffle Remaining</button>
-          <button onClick={() => props.onResetDeck(object.id)}>Reset Deck</button>
+          <button title="Shuffle the cards still in this deck." onClick={() => props.onShuffleDeck(object.id)}>Shuffle Remaining</button>
+          <button title="Restore this deck from its saved template." onClick={() => props.onResetDeck(object.id)}>Reset Deck</button>
           <p>{object.remainingCardAssetIds.length} cards remaining</p>
           {object.remainingCardAssetIds.length === 0 && <p className="muted">Empty deck.</p>}
           <div className="contained-card-list">
@@ -184,9 +237,9 @@ export function ObjectInspector(props: ObjectInspectorProps) {
                     ) : "?"}
                   </div>
                   <span title={asset?.name ?? "Missing card"}>{index + 1}. {asset?.name ?? "Missing card"}</span>
-                  <button disabled={index === 0} onClick={() => props.onReorderDeckCard(object.id, index, index - 1)}>Up</button>
-                  <button disabled={index === object.remainingCardAssetIds.length - 1} onClick={() => props.onReorderDeckCard(object.id, index, index + 1)}>Down</button>
-                  <button onClick={() => props.onDrawDeck(object.id, deckTargetPlayerId || undefined, "top", index)}>Hand</button>
+                  <button title="Move this card up in the deck." disabled={index === 0} onClick={() => props.onReorderDeckCard(object.id, index, index - 1)}>Up</button>
+                  <button title="Move this card down in the deck." disabled={index === object.remainingCardAssetIds.length - 1} onClick={() => props.onReorderDeckCard(object.id, index, index + 1)}>Down</button>
+                  <button title="Move this card to the selected hand." onClick={() => props.onDrawDeck(object.id, deckTargetPlayerId || undefined, "top", index)}>Hand</button>
                 </div>
               );
             })}
@@ -221,7 +274,7 @@ export function ObjectInspector(props: ObjectInspectorProps) {
       )}
       {object.type === "card" && (
         <div className="inspector-section">
-          <button onClick={() => props.onFlipCard(object.id)}>{object.faceUp ? "Flip Face Down" : "Flip Face Up"}</button>
+          <button title="Flip this card over." onClick={() => props.onFlipCard(object.id)}>{object.faceUp ? "Flip Face Down" : "Flip Face Up"}</button>
           <label>
             Return to Hand
             <select onChange={(event) => event.target.value && props.onMoveCardToHand(object.id, event.target.value)} defaultValue="">
@@ -234,6 +287,13 @@ export function ObjectInspector(props: ObjectInspectorProps) {
             <select onChange={(event) => event.target.value && props.onMoveCardToDiscard(object.id, event.target.value)} defaultValue="">
               <option value="">Choose pile</option>
               {props.session.discardPiles.map((pile) => <option key={pile.id} value={pile.id}>{pile.name}</option>)}
+            </select>
+          </label>
+          <label>
+            Return to Deck
+            <select onChange={(event) => event.target.value && props.onMoveCardToDeck(object.id, event.target.value, "top")} defaultValue="">
+              <option value="">Choose deck</option>
+              {props.session.deckInstances.map((deck) => <option key={deck.id} value={deck.id}>{deck.name}</option>)}
             </select>
           </label>
         </div>
@@ -268,7 +328,7 @@ export function ObjectInspector(props: ObjectInspectorProps) {
                     ) : "?"}
                   </div>
                   <span title={asset?.name ?? "Missing card"}>{asset?.name ?? "Missing card"}</span>
-                  <button onClick={() => props.onMoveCardToBoard(cardId, boardX, boardY)}>Board</button>
+                  <button title="Move this card from discard to the board." onClick={() => props.onMoveCardToBoard(cardId, boardX, boardY)}>Board</button>
                   <select onChange={(event) => event.target.value && props.onMoveCardToHand(cardId, event.target.value)} defaultValue="">
                     <option value="">Hand</option>
                     {props.session.players.map((player) => <option key={player.id} value={player.id}>{player.name}</option>)}

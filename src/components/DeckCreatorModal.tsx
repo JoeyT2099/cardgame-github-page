@@ -138,15 +138,15 @@ export function DeckCreatorModal({ assets, deckTemplates, onClose, onUpload, onS
       <div className="modal wide-modal">
         <div className="modal-header">
           <h2>Decks</h2>
-          <button onClick={onClose}>Close</button>
+          <button title="Close the deck editor." onClick={onClose}>Close</button>
         </div>
         <div className="deck-editor-layout">
           <aside className="deck-template-list">
-            <button className={editingDeckId === "new" ? "active" : ""} onClick={() => setEditingDeckId("new")}>New Deck</button>
-            <button type="button" className="deck-list-action" onClick={() => importInputRef.current?.click()}>Import Deck</button>
+            <button title="Start creating a new deck." className={editingDeckId === "new" ? "active" : ""} onClick={() => setEditingDeckId("new")}>New Deck</button>
+            <button type="button" className="deck-list-action" title="Import a deck export file." onClick={() => importInputRef.current?.click()}>Import Deck</button>
             {sortedDecks.length > 0 && <hr className="deck-list-divider" />}
             {sortedDecks.map((deck) => (
-              <button key={deck.id} className={editingDeckId === deck.id ? "active" : ""} onClick={() => setEditingDeckId(deck.id)}>
+              <button key={deck.id} title={`Edit ${deck.name}.`} className={editingDeckId === deck.id ? "active" : ""} onClick={() => setEditingDeckId(deck.id)}>
                 <span>{deck.name}</span>
                 <small>{deck.cardAssetIds.length} cards</small>
               </button>
@@ -179,7 +179,7 @@ export function DeckCreatorModal({ assets, deckTemplates, onClose, onUpload, onS
                   {backCandidates.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
                 </select>
               </label>
-              <button type="button" onClick={setAllCardBacks}>Set All Card Backs</button>
+              <button type="button" title="Apply the default card back to all selected cards." onClick={setAllCardBacks}>Set All Card Backs</button>
               <FileUploadButton label="Upload Card Images" category="card" onAssets={uploadCards} onError={onError} />
               <FileUploadButton label="Upload Card Back" category="deck" multiple={false} onAssets={uploadBack} onError={onError} />
             </div>
@@ -196,7 +196,7 @@ export function DeckCreatorModal({ assets, deckTemplates, onClose, onUpload, onS
                   <img src={asset.imageDataUrl} alt={asset.name} />
                   <span>{asset.name}</span>
                   <div className="quantity-control">
-                    <button type="button" onClick={() => setQuantity(asset.id, (quantities[asset.id] ?? 0) - 1)}>-</button>
+                    <button type="button" title="Decrease this card quantity." onClick={() => setQuantity(asset.id, (quantities[asset.id] ?? 0) - 1)}>-</button>
                     <label>
                       Qty
                       <input
@@ -207,7 +207,7 @@ export function DeckCreatorModal({ assets, deckTemplates, onClose, onUpload, onS
                         onChange={(event) => setQuantity(asset.id, Number(event.target.value))}
                       />
                     </label>
-                    <button type="button" onClick={() => setQuantity(asset.id, (quantities[asset.id] ?? 0) + 1)}>+</button>
+                    <button type="button" title="Increase this card quantity." onClick={() => setQuantity(asset.id, (quantities[asset.id] ?? 0) + 1)}>+</button>
                   </div>
                   <label className="card-back-select">
                     Back
@@ -221,9 +221,9 @@ export function DeckCreatorModal({ assets, deckTemplates, onClose, onUpload, onS
             </div>
             <div className="modal-actions">
               <span>{editingDeck ? "Editing saved deck" : "Creating new deck"}</span>
-              {editingDeck && <button className="danger" onClick={() => { if (onDelete(editingDeck.id)) setEditingDeckId("new"); }}>Delete Deck</button>}
-              {editingDeck && <button type="button" onClick={() => onExport(editingDeck)}>Export Deck</button>}
-              <button onClick={save}>{editingDeck ? "Save Changes" : "Save Deck"}</button>
+              {editingDeck && <button className="danger" title="Delete this saved deck." onClick={() => { if (onDelete(editingDeck.id)) setEditingDeckId("new"); }}>Delete Deck</button>}
+              {editingDeck && <button type="button" title="Export this deck and its card images." onClick={() => onExport(editingDeck)}>Export Deck</button>}
+              <button title="Save this deck." onClick={save}>{editingDeck ? "Save Changes" : "Save Deck"}</button>
             </div>
           </section>
         </div>

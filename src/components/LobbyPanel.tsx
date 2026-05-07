@@ -77,7 +77,7 @@ export function LobbyPanel({ lobby, localClientId, localPlayerId, onMaxPlayers, 
             </ol>
           </>
         )}
-        <button onClick={onOpenMultiplayer}>{isHost ? "Open Multiplayer Codes" : "Multiplayer Host / Join"}</button>
+        <button title="Open multiplayer setup." onClick={onOpenMultiplayer}>{isHost ? "Open Multiplayer Codes" : "Multiplayer Host / Join"}</button>
       </div>
       <label>
         Your Name
@@ -111,7 +111,7 @@ export function LobbyPanel({ lobby, localClientId, localPlayerId, onMaxPlayers, 
         <input type="checkbox" checked={self?.ready ?? false} onChange={(event) => onReady(event.target.checked)} />
         Ready
       </label>
-      {lobby.mode !== "join" && <button disabled={!canStart} onClick={onStart}>Start Game</button>}
+      {lobby.mode !== "join" && <button title="Start play with the current seats." disabled={!canStart} onClick={onStart}>Start Game</button>}
       {isHost && lobby.players.length < lobby.maxPlayers && <p className="muted">Waiting for {lobby.maxPlayers - lobby.players.length} more player seat{lobby.maxPlayers - lobby.players.length === 1 ? "" : "s"} before starting.</p>}
     </section>
   );

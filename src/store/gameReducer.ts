@@ -265,6 +265,30 @@ export const gameReducer = (session: GameSession, action: GameAction): GameSessi
         selectedObjectId: payload.discardPileId
       });
     }
+    case "MOVE_CARD_TO_DECK": {
+      const payload = action.payload as { cardId: string; deckInstanceId: string; position?: "top" | "bottom" };
+      const card = session.cardInstances.find((item) => item.id === payload.cardId);
+      const targetDeck = session.deckInstances.find((item) => item.id === payload.deckInstanceId);
+      if (!card || !targetDeck) return session;
+      const withoutHands = removeFromHands(removeFromDiscards(session, payload.cardId), payload.cardId);
+      return touch({
+        ...withoutHands,
+        deckInstances: withoutHands.deckInstances.map((deck) =>
+          deck.id === payload.deckInstanceId
+            ? {
+                ...deck,
+                drawnCardAssetIds: deck.drawnCardAssetIds.filter((id, index) => id !== card.assetId || index !== deck.drawnCardAssetIds.indexOf(card.assetId)),
+                remainingCardAssetIds:
+                  payload.position === "bottom"
+                    ? [...deck.remainingCardAssetIds, card.assetId]
+                    : [card.assetId, ...deck.remainingCardAssetIds]
+              }
+            : deck
+        ),
+        cardInstances: withoutHands.cardInstances.filter((item) => item.id !== payload.cardId),
+        selectedObjectId: payload.deckInstanceId
+      });
+    }
     case "RENAME_DISCARD_PILE": {
       const payload = action.payload as { discardPileId: string; name: string };
       return touch({

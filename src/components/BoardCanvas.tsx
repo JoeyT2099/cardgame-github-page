@@ -129,17 +129,17 @@ export function BoardCanvas({ session, assets, perspectiveRotation, zoom, canvas
                 {canvas.name.trim() || "Untitled"}
               </button>
             )}
-            <button aria-label={`Delete ${canvas.name}`} disabled={canvasTabs.length <= 1} onClick={() => onDeleteCanvas(canvas.id)}>x</button>
+            <button aria-label={`Delete ${canvas.name}`} title="Delete this canvas." disabled={canvasTabs.length <= 1} onClick={() => onDeleteCanvas(canvas.id)}>x</button>
           </div>
         ))}
-        <button className="canvas-add-button" onClick={onCreateCanvas}>+ Canvas</button>
+        <button className="canvas-add-button" title="Add a new canvas tab." onClick={onCreateCanvas}>+ Canvas</button>
       </div>
       <div className="board-canvas" onPointerDown={beginPan} onPointerMove={movePan} onPointerUp={endPan} onPointerCancel={endPan}>
         <div className="board-zoom-controls" onPointerDown={(event) => event.stopPropagation()}>
-          <button onClick={() => onZoom(Math.max(0.4, Number((zoom - 0.1).toFixed(2))))}>-</button>
+          <button title="Zoom out." onClick={() => onZoom(Math.max(0.4, Number((zoom - 0.1).toFixed(2))))}>-</button>
           <input type="range" min="0.4" max="2.5" step="0.1" value={zoom} onChange={(event) => onZoom(Number(event.target.value))} />
-          <button onClick={() => onZoom(Math.min(2.5, Number((zoom + 0.1).toFixed(2))))}>+</button>
-          <button onClick={() => onZoom(1)}>{Math.round(zoom * 100)}%</button>
+          <button title="Zoom in." onClick={() => onZoom(Math.min(2.5, Number((zoom + 0.1).toFixed(2))))}>+</button>
+          <button title="Reset zoom to 100%." onClick={() => onZoom(1)}>{Math.round(zoom * 100)}%</button>
         </div>
         <div className="board-stage" style={{ transform: `translate(${pan.x}px, ${pan.y}px) rotate(${perspectiveRotation}deg) scale(${zoom})` }} onPointerDown={beginPan} onPointerMove={movePan} onPointerUp={endPan} onPointerCancel={endPan}>
         {boardAsset ? <img className="board-background" src={boardAsset.imageDataUrl} alt={boardAsset.name} /> : !hasBoardContent && <div className="empty-board">Place a board image or start placing pieces.</div>}

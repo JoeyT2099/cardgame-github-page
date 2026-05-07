@@ -67,6 +67,15 @@ const getJoinSeat = (): 2 | 3 | 4 => {
 
 const clientId = getClientId();
 
+const shuffleItems = <T,>(items: T[]) => {
+  const shuffled = [...items];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+  return shuffled;
+};
+
 const getPerspectiveRotation = (session: GameSession, playerId: string) => {
   const index = Math.max(0, session.players.findIndex((player) => player.id === playerId));
   return (index * 360) / Math.max(1, session.players.length);
@@ -374,10 +383,17 @@ export default function App() {
     setModal(undefined);
   };
 
+  const createDiscardPile = () => {
+    const nameInput = window.prompt("Discard pile name", "Discard");
+    if (nameInput === null) return;
+    const name = nameInput.trim();
+    applyAction(createAction("CREATE_DISCARD_PILE", { id: crypto.randomUUID(), name: name || "Discard", x: 260, y: 160, layerId: activeLayerId, canvasId: activeCanvasId }, clientId));
+  };
+
   const addDeckInstance = (deck: DeckTemplate) => {
     const deckAssetIds = new Set([...deck.cardAssetIds, ...(deck.defaultBackAssetId ? [deck.defaultBackAssetId] : []), ...Object.values(deck.cardBackAssetIds ?? {})]);
     addAssets(assets.filter((asset) => deckAssetIds.has(asset.id)).map((asset) => ({ ...asset, sharedInSession: true })));
-    applyAction(createAction("ADD_DECK_INSTANCE", { id: crypto.randomUUID(), deckTemplateId: deck.id, name: deck.name, cardAssetIds: deck.cardAssetIds, x: 120, y: 120, backAssetId: deck.defaultBackAssetId, layerId: activeLayerId, canvasId: activeCanvasId }, clientId));
+    applyAction(createAction("ADD_DECK_INSTANCE", { id: crypto.randomUUID(), deckTemplateId: deck.id, name: deck.name, cardAssetIds: shuffleItems(deck.cardAssetIds), x: 120, y: 120, backAssetId: deck.defaultBackAssetId, layerId: activeLayerId, canvasId: activeCanvasId }, clientId));
     setModal(undefined);
   };
 
@@ -757,7 +773,7 @@ export default function App() {
         onSetBoard={() => setModal("setBoard")}
         onCreateDeck={() => setModal("createDeck")}
         onAddDeck={() => setModal("addDeck")}
-        onAddDiscard={() => applyAction(createAction("CREATE_DISCARD_PILE", { id: crypto.randomUUID(), name: "Discard", x: 260, y: 160, layerId: activeLayerId, canvasId: activeCanvasId }, clientId))}
+        onAddDiscard={createDiscardPile}
         onAddToken={() => setModal("token")}
         onPlaceImage={() => setModal("placeImage")}
         onOpenMultiplayer={() => setModal("multiplayer")}
@@ -772,7 +788,7 @@ export default function App() {
         onSetActiveLayer={setActiveLayerId}
       />
       <input ref={importInputRef} className="hidden-input" type="file" accept="application/json" onChange={(event) => event.target.files?.[0] && importSession(event.target.files[0])} />
-      {error && <div className="toast"><span>{error}</span><button onClick={() => setError("")}>Dismiss</button></div>}
+      {error && <div className="toast"><span>{error}</span><button title="Dismiss this message." onClick={() => setError("")}>Dismiss</button></div>}
       <div className="workspace">
         <aside className="left-panel">
           <LobbyPanel
@@ -801,7 +817,7 @@ export default function App() {
           <section className="side-section">
             <h2>Saved Decks</h2>
             {deckTemplates.map((deck) => (
-              <button key={deck.id} className="deck-list-row" onClick={() => addDeckInstance(deck)}>
+              <button key={deck.id} className="deck-list-row" title={`Place shuffled ${deck.name} on the canvas.`} onClick={() => addDeckInstance(deck)}>
                 <span>{deck.name}</span>
                 <small>{deck.cardAssetIds.length} cards</small>
               </button>
@@ -845,6 +861,7 @@ export default function App() {
           onMoveCardToHand={(cardId, playerId) => applyAction(createAction("MOVE_CARD_TO_HAND", { cardId, playerId }, clientId))}
           onMoveCardToBoard={(cardId, x, y) => applyAction(createAction("MOVE_CARD_TO_BOARD", { cardId, x, y, canvasId: activeCanvasId }, clientId))}
           onMoveCardToDiscard={(cardId, discardPileId) => applyAction(createAction("MOVE_CARD_TO_DISCARD", { cardId, discardPileId }, clientId))}
+          onMoveCardToDeck={(cardId, deckInstanceId, position) => applyAction(createAction("MOVE_CARD_TO_DECK", { cardId, deckInstanceId, position }, clientId))}
           onRenameDiscard={(discardPileId, name) => applyAction(createAction("RENAME_DISCARD_PILE", { discardPileId, name }, clientId))}
           onDrawDeck={drawDeck}
           onShuffleDeck={shuffleDeck}

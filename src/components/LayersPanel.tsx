@@ -98,7 +98,7 @@ export function LayersPanel({ layers, activeLayerId, defaultLayerId, onActivate,
           );
         })}
       </div>
-      <button className="layer-add-btn" onClick={onCreate}>+ Add Layer</button>
+      <button className="layer-add-btn" title="Create a new layer." onClick={onCreate}>+ Add Layer</button>
     </section>
   );
 }

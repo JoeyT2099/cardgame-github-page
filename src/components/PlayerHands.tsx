@@ -53,6 +53,7 @@ export function PlayerHands({
               key={player.id}
               className={player.id === session.activePlayerId ? "active" : ""}
               style={{ borderColor: player.color }}
+              title={`Set ${player.name} as the active player.`}
               onClick={() => onSetActivePlayer(player.id)}
             >
               {player.name} ({player.handCardInstanceIds.length})
@@ -76,7 +77,7 @@ export function PlayerHands({
                     <button
                       key={cardId}
                       className="hand-card"
-                      title="Place on Board"
+                      title="Place this card on the board."
                       onClick={() => { hidePreview(); onMoveCardToBoard(cardId); }}
                       onMouseEnter={() => showPreview(cardId, asset)}
                       onMouseLeave={hidePreview}
@@ -125,6 +126,7 @@ export function PlayerHands({
             key={player.id}
             className={player.id === session.activePlayerId ? "active" : ""}
             style={{ borderColor: player.color }}
+            title={`Set ${player.name} as the active player.`}
             onClick={() => onSetActivePlayer(player.id)}
           >
             {player.name} ({player.handCardInstanceIds.length})
@@ -156,7 +158,7 @@ export function PlayerHands({
                     <button
                       key={cardId}
                       className="hand-card"
-                      title="Place on Board"
+                      title="Place this card on the board."
                       onClick={() => { hidePreview(); onMoveCardToBoard(cardId); }}
                       onMouseEnter={() => isViewing && showPreview(cardId, asset)}
                       onMouseLeave={hidePreview}

@@ -30,12 +30,13 @@ export function SessionManagerModal({ sessions, games, currentSession, onClose, 
       <div className="modal">
         <div className="modal-header">
           <h2>Sessions & Games</h2>
-          <button onClick={onClose}>Close</button>
+          <button title="Close saved sessions." onClick={onClose}>Close</button>
         </div>
         <section className="manager-section">
           <div className="manager-heading">
             <h3>Saved Games</h3>
             <button
+              title="Save the current table as a reusable game."
               onClick={() => {
                 const name = window.prompt("Game name", currentSession.name);
                 if (name) onSaveGame(name);
@@ -53,9 +54,9 @@ export function SessionManagerModal({ sessions, games, currentSession, onClose, 
                   <strong>{record.name}</strong>
                   <span>{new Date(record.updatedAt).toLocaleString()}</span>
                 </div>
-                <button onClick={() => onLoadGame(record.bundle)}>Load Game</button>
-                <button onClick={() => exportGame(record)}>Export</button>
-                <button className="danger" onClick={() => onDeleteGame(record.id)}>Delete</button>
+                <button title="Load this saved game." onClick={() => onLoadGame(record.bundle)}>Load Game</button>
+                <button title="Export this saved game." onClick={() => exportGame(record)}>Export</button>
+                <button className="danger" title="Delete this saved game." onClick={() => onDeleteGame(record.id)}>Delete</button>
               </article>
             ))}
           </div>
@@ -70,8 +71,8 @@ export function SessionManagerModal({ sessions, games, currentSession, onClose, 
                 <strong>{record.name}</strong>
                 <span>{new Date(record.updatedAt).toLocaleString()}</span>
               </div>
-              <button onClick={() => onLoad(record.session)}>Load</button>
-              <button className="danger" onClick={() => onDelete(record.id)}>Delete</button>
+              <button title="Load this saved session." onClick={() => onLoad(record.session)}>Load</button>
+              <button className="danger" title="Delete this saved session." onClick={() => onDelete(record.id)}>Delete</button>
             </article>
           ))}
         </div>

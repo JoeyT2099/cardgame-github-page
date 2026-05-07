@@ -56,7 +56,7 @@ export function MultiplayerPanel(props: MultiplayerPanelProps) {
       <div className="modal">
         <div className="modal-header">
           <h2>Multiplayer</h2>
-          <button onClick={props.onClose}>Close</button>
+          <button title="Close multiplayer setup." onClick={props.onClose}>Close</button>
         </div>
         <p>Status: {props.status}</p>
         {screen === "choose" && (
@@ -66,11 +66,11 @@ export function MultiplayerPanel(props: MultiplayerPanelProps) {
               <p>Only one browser should host the table. Every other browser should join with an offer code from the host.</p>
             </div>
             <div className="role-choice-grid">
-              <button className="role-choice-card" onClick={openHost}>
+              <button className="role-choice-card" title="Host this multiplayer game." onClick={openHost}>
                 <strong>Host Game</strong>
                 <span>Create the table as Player 1 and generate offer codes for other players.</span>
               </button>
-              <button className="role-choice-card" onClick={openJoin}>
+              <button className="role-choice-card" title="Join another host's game." onClick={openJoin}>
                 <strong>Join Game</strong>
                 <span>Use an offer code from the host and choose Player 2, 3, or 4.</span>
               </button>
@@ -80,7 +80,7 @@ export function MultiplayerPanel(props: MultiplayerPanelProps) {
         {screen === "host" && (
           <>
             <div className="modal-subheader">
-              <button onClick={() => setScreen("choose")}>Back</button>
+              <button title="Return to role selection." onClick={() => setScreen("choose")}>Back</button>
               <h3>Host Game</h3>
             </div>
             <div className="multiplayer-help">
@@ -88,7 +88,7 @@ export function MultiplayerPanel(props: MultiplayerPanelProps) {
               <p>This browser is Player 1. Create one offer code per joining player, then accept that player's answer code.</p>
             </div>
             <div className="signal-block">
-              <button onClick={props.onHost}>{props.pendingInvites.length > 0 ? "Create Another Offer" : "Create Host Offer"}</button>
+              <button title="Create an offer code for one joining player." onClick={props.onHost}>{props.pendingInvites.length > 0 ? "Create Another Offer" : "Create Host Offer"}</button>
               {props.pendingInvites.length > 0 && (
                 <label>
                   Pending Offer
@@ -105,12 +105,12 @@ export function MultiplayerPanel(props: MultiplayerPanelProps) {
                 1. Send this offer code to the joining player
                 <textarea readOnly value={selectedInvite?.offerCode ?? ""} placeholder="Host offer code appears here" />
               </label>
-              <button onClick={() => copy(selectedInvite?.offerCode ?? "")} disabled={!selectedInvite}>Copy Offer</button>
+              <button title="Copy this offer code." onClick={() => copy(selectedInvite?.offerCode ?? "")} disabled={!selectedInvite}>Copy Offer</button>
               <label>
                 2. Paste the answer code they send back
                 <textarea value={answerInput} onChange={(event) => setAnswerInput(event.target.value)} placeholder="Paste joiner's answer code here" />
               </label>
-              <button onClick={() => props.onAcceptAnswer(answerInput)} disabled={!selectedInvite || !answerInput.trim()}>Accept Answer</button>
+              <button title="Accept this answer and seat the joining player." onClick={() => props.onAcceptAnswer(answerInput)} disabled={!selectedInvite || !answerInput.trim()}>Accept Answer</button>
             </div>
             <div className="connected-list">
               {props.peers.map((peer) => (
@@ -125,7 +125,7 @@ export function MultiplayerPanel(props: MultiplayerPanelProps) {
         {screen === "join" && (
           <>
             <div className="modal-subheader">
-              <button onClick={() => setScreen("choose")}>Back</button>
+              <button title="Return to role selection." onClick={() => setScreen("choose")}>Back</button>
               <h3>Join Game</h3>
             </div>
             <div className="multiplayer-help">
@@ -145,19 +145,19 @@ export function MultiplayerPanel(props: MultiplayerPanelProps) {
                 1. Paste the host's offer code here
                 <textarea value={offerInput} onChange={(event) => setOfferInput(event.target.value)} placeholder="Paste host offer code here" />
               </label>
-              <button onClick={() => props.onJoin(offerInput, props.joinSeat)} disabled={!offerInput.trim()}>Generate Answer</button>
+              <button title="Generate an answer code for the host." onClick={() => props.onJoin(offerInput, props.joinSeat)} disabled={!offerInput.trim()}>Generate Answer</button>
               <label>
                 2. Send this answer code back to the host
                 <textarea readOnly value={props.answerCode} placeholder="Answer code appears here" />
               </label>
-              <button onClick={() => copy(props.answerCode)} disabled={!props.answerCode}>Copy Answer</button>
+              <button title="Copy this answer code." onClick={() => copy(props.answerCode)} disabled={!props.answerCode}>Copy Answer</button>
             </div>
           </>
         )}
         <div className="modal-actions">
-          <button onClick={props.onSync} disabled={props.mode !== "host"}>Sync Full Session</button>
-          <button onClick={props.onLocal}>Local Mode</button>
-          <button className="danger" onClick={props.onDisconnect}>Disconnect</button>
+          <button title="Send the full current session to connected players." onClick={props.onSync} disabled={props.mode !== "host"}>Sync Full Session</button>
+          <button title="Return to local-only play." onClick={props.onLocal}>Local Mode</button>
+          <button className="danger" title="Disconnect multiplayer." onClick={props.onDisconnect}>Disconnect</button>
         </div>
         <p className="muted">Manual codes replace a signaling server for this static GitHub Pages MVP. TURN is not included, so some networks may not connect.</p>
       </div>

@@ -23,8 +23,8 @@ export function ConfirmDialog({ title, message, confirmLabel = "Confirm", onConf
         <h2>{title}</h2>
         <p>{message}</p>
         <div className="modal-actions">
-          <button onClick={onCancel}>Cancel</button>
-          <button className="danger" onClick={onConfirm}>
+          <button title="Cancel this action." onClick={onCancel}>Cancel</button>
+          <button className="danger" title="Confirm this action." onClick={onConfirm}>
             {confirmLabel}
           </button>
         </div>

@@ -114,7 +114,7 @@ export function AssetLibraryModal(props: AssetLibraryModalProps) {
       <div className="modal wide-modal">
         <div className="modal-header">
           <h2>Asset Library</h2>
-          <button onClick={props.onClose}>Close</button>
+          <button title="Close the asset library." onClick={props.onClose}>Close</button>
         </div>
         <div className="library-tools">
           <FileUploadButton label="Upload Images" category={props.mode === "setBoard" ? "board" : props.mode === "token" ? "token" : "card"} onAssets={props.onUpload} onError={props.onError} />
@@ -149,7 +149,7 @@ export function AssetLibraryModal(props: AssetLibraryModalProps) {
                       {tokenShapes.map((shape) => <option key={shape.value} value={shape.value}>{shape.label}</option>)}
                     </select>
                   </label>
-                  <button type="button" onClick={() => props.onCreateGenericToken(size.width, size.height, tokenShape)}>Generic Token</button>
+                  <button type="button" title="Place a generic colored token." onClick={() => props.onCreateGenericToken(size.width, size.height, tokenShape)}>Generic Token</button>
                 </>
               )}
             </div>
@@ -171,20 +171,20 @@ export function AssetLibraryModal(props: AssetLibraryModalProps) {
                 </select>
                 {usage.length > 0 && <small className="asset-usage">Used in {usage.join(", ")}</small>}
                 <div className="asset-actions">
-                  {(props.mode === "browse" || props.mode === "setBoard") && <button onClick={() => {
+                  {(props.mode === "browse" || props.mode === "setBoard") && <button title="Place this image as a board." onClick={() => {
                     const placementSize = getPlacementSize(asset, boardSize);
                     props.onUseAsBoard(asset.id, placementSize.width, placementSize.height);
                   }}>Use as Board</button>}
-                  {(props.mode === "browse" || props.mode === "token") && <button onClick={() => {
+                  {(props.mode === "browse" || props.mode === "token") && <button title="Place this image as a token." onClick={() => {
                     const placementSize = getPlacementSize(asset, tokenSize);
                     props.onUseAsToken(asset.id, placementSize.width, placementSize.height, tokenShape);
                   }}>Use as Token</button>}
-                  {(props.mode === "browse" || props.mode === "addToDeck") && <button onClick={() => props.onAddToDeck(asset.id)}>Add to Deck</button>}
-                  {(props.mode === "browse" || props.mode === "placeImage") && <button onClick={() => {
+                  {(props.mode === "browse" || props.mode === "addToDeck") && <button title="Use this image in deck creation." onClick={() => props.onAddToDeck(asset.id)}>Add to Deck</button>}
+                  {(props.mode === "browse" || props.mode === "placeImage") && <button title="Place this image on the canvas." onClick={() => {
                     const placementSize = getPlacementSize(asset, imageSize);
                     props.onPlaceOnBoard(asset.id, placementSize.width, placementSize.height);
                   }}>Place</button>}
-                  <button className="danger asset-delete-button" onClick={() => props.onDelete(asset.id)}>Delete Asset</button>
+                  <button className="danger asset-delete-button" title="Delete this asset from the library." onClick={() => props.onDelete(asset.id)}>Delete Asset</button>
                 </div>
               </article>
             );
