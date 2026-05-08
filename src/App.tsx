@@ -436,6 +436,38 @@ export default function App() {
     }
   };
 
+  const sendFullStateToPeer = (peerId: string) => {
+    const currentSession = sessionRef.current;
+    const currentDeckTemplates = deckTemplatesRef.current;
+    hostSync.current?.sendToPeer(peerId, { kind: "LOBBY_SYNC", lobby: lobbyRef.current });
+    const lobbyPlayer = lobbyRef.current.players.find((player) => player.clientId === peerId);
+    if (lobbyPlayer) hostSync.current?.sendToPeer(peerId, { kind: "PLAYER_ASSIGN", playerId: lobbyPlayer.playerId });
+    hostSync.current?.syncFullStateToPeer(
+      peerId,
+      currentSession,
+      getAssetsForSession(currentSession, assetsRef.current, currentDeckTemplates),
+      currentDeckTemplates
+    );
+  };
+
+  const refreshFromHost = () => {
+    if (mode === "host") {
+      hostSync.current?.syncFullState(sessionRef.current, getAssetsForSession(sessionRef.current, assetsRef.current, deckTemplatesRef.current), deckTemplatesRef.current);
+      return;
+    }
+    if (mode !== "join" || !clientSync.current) {
+      setError("Join a multiplayer host before refreshing from host.");
+      return;
+    }
+    requestedMissingAssetAtRef.current.clear();
+    clientSync.current.send({ kind: "FULL_STATE_REQUEST" });
+    const availableAssetIds = new Set(assetsRef.current.map((asset) => asset.id));
+    const missingAssetIds = getRequiredAssetIdsForSession(sessionRef.current, deckTemplatesRef.current).filter((assetId) => !availableAssetIds.has(assetId));
+    if (missingAssetIds.length > 0) {
+      clientSync.current.send({ kind: "ASSET_REQUEST", assetIds: [...new Set(missingAssetIds)] });
+    }
+  };
+
   const applyAction = (action: GameAction) => {
     if (mode === "join") {
       clientSync.current?.send({ kind: "ACTION", action });
@@ -488,6 +520,9 @@ export default function App() {
   };
 
   const handleNetworkMessage = (message: MultiplayerMessage, peerId?: string) => {
+    if (message.kind === "FULL_STATE_REQUEST" && modeRef.current === "host" && peerId) {
+      sendFullStateToPeer(peerId);
+    }
     if (message.kind === "ACTION") {
       const action = modeRef.current === "host" && peerId ? { ...message.action, clientId: peerId } : message.action;
       if (modeRef.current === "host") applyHostAction(action);
@@ -914,15 +949,24 @@ export default function App() {
         const nextInvite = pendingInvites.find((invite) => invite.peerId !== invitePeerId);
         return nextInvite?.peerId ?? "";
       });
-      hostSync.current?.syncFullStateToPeer(
-        invitePeerId,
-        sessionRef.current,
-        getAssetsForSession(sessionRef.current, assetsRef.current, deckTemplatesRef.current),
-        deckTemplatesRef.current
-      );
+      sendFullStateToPeer(invitePeerId);
     } catch (error) {
       setError(error instanceof Error ? error.message : "Invalid answer code.");
     }
+  };
+
+  const disconnectPeer = (peerId: string) => {
+    if (mode !== "host") return;
+    hostSync.current?.disconnectPeer(peerId);
+    setPendingInvites((current) => current.filter((invite) => invite.peerId !== peerId));
+    setSelectedInvitePeerId((current) => (current === peerId ? "" : current));
+    const nextLobby = {
+      ...lobbyRef.current,
+      players: lobbyRef.current.players.filter((player) => player.clientId !== peerId)
+    };
+    lobbyRef.current = nextLobby;
+    setLobby(nextLobby);
+    hostSync.current?.broadcast({ kind: "LOBBY_SYNC", lobby: nextLobby });
   };
 
   const disconnect = () => {
@@ -970,6 +1014,7 @@ export default function App() {
             onName={(name) => updateLocalLobbyPlayer({ name })}
             onReady={(ready) => updateLocalLobbyPlayer({ ready })}
             onOpenMultiplayer={() => setModal("multiplayer")}
+            onRefreshFromHost={refreshFromHost}
           />
           <LayersPanel
             layers={session.layers}
@@ -1139,7 +1184,9 @@ export default function App() {
         onJoin={joinHost}
         onAcceptAnswer={acceptAnswer}
         onDisconnect={disconnect}
+        onDisconnectPeer={disconnectPeer}
         onSync={() => hostSync.current?.syncFullState(session, getAssetsForSession(session, assets, deckTemplates), deckTemplates)}
+        onRefreshFromHost={refreshFromHost}
       />
       {confirm && <ConfirmDialog title={confirm.title} message={confirm.message} onCancel={() => setConfirm(undefined)} onConfirm={confirm.onConfirm} />}
     </div>

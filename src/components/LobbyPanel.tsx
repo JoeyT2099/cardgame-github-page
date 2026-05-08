@@ -10,9 +10,10 @@ interface LobbyPanelProps {
   onName: (name: string) => void;
   onReady: (ready: boolean) => void;
   onOpenMultiplayer: () => void;
+  onRefreshFromHost: () => void;
 }
 
-export function LobbyPanel({ lobby, localClientId, localPlayerId, onMaxPlayers, onName, onReady, onOpenMultiplayer }: LobbyPanelProps) {
+export function LobbyPanel({ lobby, localClientId, localPlayerId, onMaxPlayers, onName, onReady, onOpenMultiplayer, onRefreshFromHost }: LobbyPanelProps) {
   const isSelf = (player?: LobbyState["players"][number]) => {
     if (!player) return false;
     if (lobby.mode === "join") return Boolean(localPlayerId && player.playerId === localPlayerId);
@@ -74,6 +75,11 @@ export function LobbyPanel({ lobby, localClientId, localPlayerId, onMaxPlayers, 
           </>
         )}
         <button title="Open multiplayer setup." onClick={onOpenMultiplayer}>{isHost ? "Open Multiplayer Codes" : "Multiplayer Host / Join"}</button>
+        {lobby.mode === "join" && (
+          <button title="Ask the host to resend the current table, hands, decks, and required assets." onClick={onRefreshFromHost}>
+            Client Refresh
+          </button>
+        )}
       </div>
       <label>
         Your Name

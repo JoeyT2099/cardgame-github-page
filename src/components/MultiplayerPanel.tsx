@@ -20,7 +20,9 @@ interface MultiplayerPanelProps {
   onJoin: (offerCode: string, seat: 2 | 3 | 4) => void;
   onAcceptAnswer: (answerCode: string) => void;
   onDisconnect: () => void;
+  onDisconnectPeer: (peerId: string) => void;
   onSync: () => void;
+  onRefreshFromHost: () => void;
 }
 
 export function MultiplayerPanel(props: MultiplayerPanelProps) {
@@ -117,6 +119,9 @@ export function MultiplayerPanel(props: MultiplayerPanelProps) {
                 <div className="connected-row" key={peer.peerId}>
                   <strong>{peer.label}</strong>
                   <em>{peer.connected ? "connected" : "waiting"}</em>
+                  <button title="Disconnect this player so they can join again with a new offer." onClick={() => props.onDisconnectPeer(peer.peerId)}>
+                    Disconnect
+                  </button>
                 </div>
               ))}
             </div>
@@ -156,6 +161,7 @@ export function MultiplayerPanel(props: MultiplayerPanelProps) {
         )}
         <div className="modal-actions">
           <button title="Send the full current session to connected players." onClick={props.onSync} disabled={props.mode !== "host"}>Sync Full Session</button>
+          <button title="Ask the host to resend the current table, hands, decks, and required assets." onClick={props.onRefreshFromHost} disabled={props.mode !== "join"}>Client Refresh</button>
           <button title="Return to local-only play." onClick={props.onLocal}>Local Mode</button>
           <button className="danger" title="Disconnect multiplayer." onClick={props.onDisconnect}>Disconnect</button>
         </div>

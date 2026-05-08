@@ -52,6 +52,13 @@ export class HostSync {
     this.sendToPeer(peerId, { kind: "FULL_STATE_SYNC", session, assets, deckTemplates });
   }
 
+  disconnectPeer(peerId: string) {
+    this.peers.get(peerId)?.close();
+    this.peers.delete(peerId);
+    this.statuses.delete(peerId);
+    this.onStatuses([...this.statuses.values()]);
+  }
+
   close() {
     this.peers.forEach((peer) => peer.close());
     this.peers.clear();
