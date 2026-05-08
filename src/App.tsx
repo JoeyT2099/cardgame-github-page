@@ -165,7 +165,7 @@ export default function App() {
   );
 
   const requestMissingAssets = React.useCallback(() => {
-    if (mode === "local" || networkStatus !== "connected") return;
+    if (mode === "local") return;
     const availableAssetIds = new Set(assets.map((asset) => asset.id));
     const now = Date.now();
     const missingAssetIds = getRequiredAssetIdsForSession(session, deckTemplates).filter((assetId) => {
@@ -179,7 +179,7 @@ export default function App() {
     const request: MultiplayerMessage = { kind: "ASSET_REQUEST", assetIds: uniqueMissingAssetIds };
     if (mode === "host") hostSync.current?.broadcast(request);
     if (mode === "join") clientSync.current?.send(request);
-  }, [assets, deckTemplates, mode, networkStatus, session]);
+  }, [assets, deckTemplates, mode, session]);
 
   const placedAssetIds = React.useMemo(() => {
     const ids: string[] = [];
@@ -251,10 +251,10 @@ export default function App() {
 
   React.useEffect(() => {
     requestMissingAssets();
-    if (mode === "local" || networkStatus !== "connected") return;
+    if (mode === "local") return;
     const interval = window.setInterval(requestMissingAssets, MISSING_ASSET_RETRY_MS);
     return () => window.clearInterval(interval);
-  }, [mode, networkStatus, requestMissingAssets]);
+  }, [mode, requestMissingAssets]);
 
   React.useEffect(() => {
     modeRef.current = mode;
@@ -877,7 +877,13 @@ export default function App() {
     const nextLobby = { ...lobby, status: "in-game" as const };
     setLobby(nextLobby);
     dispatchBase(createAction("LOAD_SESSION", nextSession, clientId));
-    hostSync.current?.broadcast({ kind: "START_GAME", lobby: nextLobby, session: nextSession, assets: [], deckTemplates });
+    hostSync.current?.broadcast({
+      kind: "START_GAME",
+      lobby: nextLobby,
+      session: nextSession,
+      assets: getAssetsForSession(nextSession, assetsRef.current, deckTemplatesRef.current),
+      deckTemplates: deckTemplatesRef.current
+    });
   };
 
   const disconnect = () => {
