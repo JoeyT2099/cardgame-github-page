@@ -77,6 +77,7 @@ export function DraggableObject({ className, style, children, movementRotation =
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!interactive) return;
     if (event.button !== 0) return;
+    event.stopPropagation();
     onSelect();
     const element = ref.current;
     if (!element) return;
@@ -92,6 +93,7 @@ export function DraggableObject({ className, style, children, movementRotation =
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!interactive) return;
     if (!start.current || !ref.current) return;
+    event.stopPropagation();
     const delta = toBoardDelta(event.clientX - start.current.pointerX, event.clientY - start.current.pointerY);
     const x = start.current.x + delta.x;
     const y = start.current.y + delta.y;
@@ -102,6 +104,7 @@ export function DraggableObject({ className, style, children, movementRotation =
   const finishDrag = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!interactive) return;
     if (!start.current || !ref.current) return;
+    event.stopPropagation();
     const delta = toBoardDelta(event.clientX - start.current.pointerX, event.clientY - start.current.pointerY);
     const x = start.current.x + delta.x;
     const y = start.current.y + delta.y;

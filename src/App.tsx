@@ -126,6 +126,7 @@ export default function App() {
   const [activeCanvasId, setActiveCanvasId] = React.useState<string>(MAIN_CANVAS_ID);
   const [boardZoom, setBoardZoom] = React.useState(1);
   const [boardRotation, setBoardRotation] = React.useState(0);
+  const [localSelectedObjectId, setLocalSelectedObjectId] = React.useState<string | undefined>();
   const [perspectivePlayerId, setPerspectivePlayerId] = React.useState<string>(session.activePlayerId);
 
   const updateBoardViewCenter = React.useCallback((point: { x: number; y: number }) => {
@@ -136,6 +137,11 @@ export default function App() {
     x: Math.round(boardViewCenterRef.current.x - width / 2),
     y: Math.round(boardViewCenterRef.current.y - height / 2)
   });
+
+  const sessionForLocalUi = React.useMemo(
+    () => ({ ...session, selectedObjectId: localSelectedObjectId }),
+    [localSelectedObjectId, session]
+  );
 
   const placedAssetIds = React.useMemo(() => {
     const ids: string[] = [];
@@ -291,11 +297,12 @@ export default function App() {
   };
 
   React.useEffect(() => {
-    const selected = findBoardObject(session, session.selectedObjectId);
-    if ((selected?.layerId && selected.layerId !== activeLayerId) || (selected?.canvasId && selected.canvasId !== activeCanvasId)) {
-      applyAction(createAction("SELECT_OBJECT", { objectId: undefined }, clientId));
+    if (!localSelectedObjectId) return;
+    const selected = findBoardObject(session, localSelectedObjectId);
+    if (!selected || (selected.layerId && selected.layerId !== activeLayerId) || (selected.canvasId && selected.canvasId !== activeCanvasId)) {
+      setLocalSelectedObjectId(undefined);
     }
-  }, [activeLayerId, activeCanvasId, session.selectedObjectId, session.deckInstances, session.cardInstances, session.discardPiles, session.tokenInstances, session.placedImageInstances]);
+  }, [activeLayerId, activeCanvasId, localSelectedObjectId, session.deckInstances, session.cardInstances, session.discardPiles, session.tokenInstances, session.placedImageInstances]);
 
   const applyHostAction = (action: GameAction) => {
     // Validate MOVE_CARD_TO_BOARD: only the player who owns the card may place it from their hand.
@@ -381,7 +388,9 @@ export default function App() {
     const asset = assets.find((item) => item.id === assetId);
     if (asset) addAssets([{ ...asset, sharedInSession: true }]);
     const { x, y } = centeredPlacement(width, height);
-    applyAction(createAction("PLACE_IMAGE", { id: crypto.randomUUID(), assetId, x, y, width, height, layerId: LAYER_IDS.board, canvasId: activeCanvasId }, clientId));
+    const id = crypto.randomUUID();
+    setLocalSelectedObjectId(id);
+    applyAction(createAction("PLACE_IMAGE", { id, assetId, x, y, width, height, layerId: LAYER_IDS.board, canvasId: activeCanvasId }, clientId));
     setModal(undefined);
   };
 
@@ -389,7 +398,9 @@ export default function App() {
     const asset = assets.find((item) => item.id === assetId);
     if (asset) addAssets([{ ...asset, sharedInSession: true }]);
     const { x, y } = centeredPlacement(width, height);
-    applyAction(createAction("PLACE_IMAGE", { id: crypto.randomUUID(), assetId, x, y, width, height, layerId: activeLayerId, canvasId: activeCanvasId }, clientId));
+    const id = crypto.randomUUID();
+    setLocalSelectedObjectId(id);
+    applyAction(createAction("PLACE_IMAGE", { id, assetId, x, y, width, height, layerId: activeLayerId, canvasId: activeCanvasId }, clientId));
     setModal(undefined);
   };
 
@@ -397,13 +408,17 @@ export default function App() {
     const asset = assets.find((item) => item.id === assetId);
     if (asset) addAssets([{ ...asset, sharedInSession: true }]);
     const { x, y } = centeredPlacement(width, height);
-    applyAction(createAction("CREATE_TOKEN", { id: crypto.randomUUID(), assetId, shape, x, y, width, height, layerId: LAYER_IDS.tokens, canvasId: activeCanvasId }, clientId));
+    const id = crypto.randomUUID();
+    setLocalSelectedObjectId(id);
+    applyAction(createAction("CREATE_TOKEN", { id, assetId, shape, x, y, width, height, layerId: LAYER_IDS.tokens, canvasId: activeCanvasId }, clientId));
     setModal(undefined);
   };
 
   const createGenericToken = (width = 64, height = 64, shape: TokenShape = "square") => {
     const { x, y } = centeredPlacement(width, height);
-    applyAction(createAction("CREATE_TOKEN", { id: crypto.randomUUID(), label: "1", color: "hsl(45 93% 60%)", shape, x, y, width, height, layerId: LAYER_IDS.tokens, canvasId: activeCanvasId }, clientId));
+    const id = crypto.randomUUID();
+    setLocalSelectedObjectId(id);
+    applyAction(createAction("CREATE_TOKEN", { id, label: "1", color: "hsl(45 93% 60%)", shape, x, y, width, height, layerId: LAYER_IDS.tokens, canvasId: activeCanvasId }, clientId));
     setModal(undefined);
   };
 
@@ -412,14 +427,18 @@ export default function App() {
     if (nameInput === null) return;
     const name = nameInput.trim();
     const { x, y } = centeredPlacement(112, 144);
-    applyAction(createAction("CREATE_DISCARD_PILE", { id: crypto.randomUUID(), name: name || "Discard", x, y, layerId: activeLayerId, canvasId: activeCanvasId }, clientId));
+    const id = crypto.randomUUID();
+    setLocalSelectedObjectId(id);
+    applyAction(createAction("CREATE_DISCARD_PILE", { id, name: name || "Discard", x, y, layerId: activeLayerId, canvasId: activeCanvasId }, clientId));
   };
 
   const addDeckInstance = (deck: DeckTemplate) => {
     const deckAssetIds = new Set([...deck.cardAssetIds, ...(deck.defaultBackAssetId ? [deck.defaultBackAssetId] : []), ...Object.values(deck.cardBackAssetIds ?? {})]);
     addAssets(assets.filter((asset) => deckAssetIds.has(asset.id)).map((asset) => ({ ...asset, sharedInSession: true })));
     const { x, y } = centeredPlacement(96, 136);
-    applyAction(createAction("ADD_DECK_INSTANCE", { id: crypto.randomUUID(), deckTemplateId: deck.id, name: deck.name, cardAssetIds: shuffleItems(deck.cardAssetIds), x, y, backAssetId: deck.defaultBackAssetId, layerId: activeLayerId, canvasId: activeCanvasId }, clientId));
+    const id = crypto.randomUUID();
+    setLocalSelectedObjectId(id);
+    applyAction(createAction("ADD_DECK_INSTANCE", { id, deckTemplateId: deck.id, name: deck.name, cardAssetIds: shuffleItems(deck.cardAssetIds), x, y, backAssetId: deck.defaultBackAssetId, layerId: activeLayerId, canvasId: activeCanvasId }, clientId));
     setModal(undefined);
   };
 
@@ -856,7 +875,7 @@ export default function App() {
           </section>
         </aside>
         <BoardCanvas
-          session={session}
+          session={sessionForLocalUi}
           assets={assets}
           canvasRotation={boardRotation}
           zoom={boardZoom}
@@ -870,25 +889,44 @@ export default function App() {
           onCreateCanvas={createCanvas}
           onDeleteCanvas={deleteCanvas}
           onRenameCanvas={(canvasId, name) => applyAction(createAction("RENAME_CANVAS", { canvasId, name }, clientId))}
-          onSelect={(objectId) => applyAction(createAction("SELECT_OBJECT", { objectId }, clientId))}
+          onSelect={setLocalSelectedObjectId}
           onMove={moveObject}
           onDrawDeck={drawDeck}
         />
         <ObjectInspector
-          session={session}
+          session={sessionForLocalUi}
           assets={assets}
           deckTemplates={deckTemplates}
           onRotate={rotateObject}
           onResize={resizeObject}
-          onDelete={(object) => applyAction(createAction("DELETE_OBJECT", { objectType: object.type, objectId: object.id }, clientId))}
-          onDuplicate={(object) => applyAction(createAction("DUPLICATE_OBJECT", { objectType: object.type, objectId: object.id, newId: crypto.randomUUID() }, clientId))}
+          onDelete={(object) => {
+            setLocalSelectedObjectId(undefined);
+            applyAction(createAction("DELETE_OBJECT", { objectType: object.type, objectId: object.id }, clientId));
+          }}
+          onDuplicate={(object) => {
+            const newId = crypto.randomUUID();
+            setLocalSelectedObjectId(newId);
+            applyAction(createAction("DUPLICATE_OBJECT", { objectType: object.type, objectId: object.id, newId }, clientId));
+          }}
           onFront={(object) => applyAction(createAction("BRING_TO_FRONT", { objectType: object.type, objectId: object.id }, clientId))}
           onBack={(object) => applyAction(createAction("SEND_TO_BACK", { objectType: object.type, objectId: object.id }, clientId))}
           onFlipCard={(cardId) => applyAction(createAction("FLIP_CARD", { cardId }, clientId))}
-          onMoveCardToHand={(cardId, playerId) => applyAction(createAction("MOVE_CARD_TO_HAND", { cardId, playerId }, clientId))}
-          onMoveCardToBoard={(cardId, x, y) => applyAction(createAction("MOVE_CARD_TO_BOARD", { cardId, x, y, canvasId: activeCanvasId }, clientId))}
-          onMoveCardToDiscard={(cardId, discardPileId) => applyAction(createAction("MOVE_CARD_TO_DISCARD", { cardId, discardPileId }, clientId))}
-          onMoveCardToDeck={(cardId, deckInstanceId, position) => applyAction(createAction("MOVE_CARD_TO_DECK", { cardId, deckInstanceId, position }, clientId))}
+          onMoveCardToHand={(cardId, playerId) => {
+            setLocalSelectedObjectId(undefined);
+            applyAction(createAction("MOVE_CARD_TO_HAND", { cardId, playerId }, clientId));
+          }}
+          onMoveCardToBoard={(cardId, x, y) => {
+            setLocalSelectedObjectId(cardId);
+            applyAction(createAction("MOVE_CARD_TO_BOARD", { cardId, x, y, canvasId: activeCanvasId }, clientId));
+          }}
+          onMoveCardToDiscard={(cardId, discardPileId) => {
+            setLocalSelectedObjectId(discardPileId);
+            applyAction(createAction("MOVE_CARD_TO_DISCARD", { cardId, discardPileId }, clientId));
+          }}
+          onMoveCardToDeck={(cardId, deckInstanceId, position) => {
+            setLocalSelectedObjectId(deckInstanceId);
+            applyAction(createAction("MOVE_CARD_TO_DECK", { cardId, deckInstanceId, position }, clientId));
+          }}
           onRenameDiscard={(discardPileId, name) => applyAction(createAction("RENAME_DISCARD_PILE", { discardPileId, name }, clientId))}
           onDrawDeck={drawDeck}
           onShuffleDeck={shuffleDeck}
@@ -910,6 +948,7 @@ export default function App() {
         onMoveCardToBoard={(cardId) => {
           const card = session.cardInstances.find((item) => item.id === cardId);
           const { x, y } = centeredPlacement(card?.width ?? 72, card?.height ?? 100);
+          setLocalSelectedObjectId(cardId);
           applyAction(createAction("MOVE_CARD_TO_BOARD", { cardId, x, y, canvasId: activeCanvasId }, clientId));
         }}
       />
