@@ -10,10 +10,9 @@ interface LobbyPanelProps {
   onName: (name: string) => void;
   onReady: (ready: boolean) => void;
   onOpenMultiplayer: () => void;
-  onStart: () => void;
 }
 
-export function LobbyPanel({ lobby, localClientId, localPlayerId, onMaxPlayers, onName, onReady, onOpenMultiplayer, onStart }: LobbyPanelProps) {
+export function LobbyPanel({ lobby, localClientId, localPlayerId, onMaxPlayers, onName, onReady, onOpenMultiplayer }: LobbyPanelProps) {
   const isSelf = (player?: LobbyState["players"][number]) => {
     if (!player) return false;
     if (lobby.mode === "join") return Boolean(localPlayerId && player.playerId === localPlayerId);
@@ -23,9 +22,6 @@ export function LobbyPanel({ lobby, localClientId, localPlayerId, onMaxPlayers, 
   const self = lobby.players.find(isSelf) ?? lobby.players[0];
   const isLocal = lobby.mode === "local";
   const isHost = lobby.mode === "host";
-  const canStart =
-    isLocal ||
-    (isHost && lobby.players.length >= lobby.maxPlayers && lobby.players.every((player) => player.ready || player.isHost));
   const seats = Array.from({ length: lobby.maxPlayers }, (_, index) => {
     const seatNumber = index + 1;
     const player = lobby.players.find((item, playerIndex) => (item.seatNumber ?? playerIndex + 1) === seatNumber);
@@ -51,7 +47,7 @@ export function LobbyPanel({ lobby, localClientId, localPlayerId, onMaxPlayers, 
             <strong>Local setup</strong>
             <ol>
               <li>Choose 2, 3, or 4 player seats.</li>
-              <li>Click Start Game.</li>
+              <li>Hands update automatically for the selected seats.</li>
               <li>Use the hand tabs and View From selector to play each side locally.</li>
             </ol>
           </>
@@ -63,7 +59,7 @@ export function LobbyPanel({ lobby, localClientId, localPlayerId, onMaxPlayers, 
               <li>You are Player 1.</li>
               <li>Open Multiplayer, copy the offer code, and send it to Player 2.</li>
               <li>Paste their answer code. That fills the next open player seat.</li>
-              <li>Repeat for Player 3 and Player 4, then Start Game.</li>
+              <li>Repeat for Player 3 and Player 4. Seats sync into hands automatically.</li>
             </ol>
           </>
         )}
@@ -111,8 +107,7 @@ export function LobbyPanel({ lobby, localClientId, localPlayerId, onMaxPlayers, 
         <input type="checkbox" checked={self?.ready ?? false} onChange={(event) => onReady(event.target.checked)} />
         Ready
       </label>
-      {lobby.mode !== "join" && <button title="Start play with the current seats." disabled={!canStart} onClick={onStart}>Start Game</button>}
-      {isHost && lobby.players.length < lobby.maxPlayers && <p className="muted">Waiting for {lobby.maxPlayers - lobby.players.length} more player seat{lobby.maxPlayers - lobby.players.length === 1 ? "" : "s"} before starting.</p>}
+      {isHost && lobby.players.length < lobby.maxPlayers && <p className="muted">Waiting for {lobby.maxPlayers - lobby.players.length} more player seat{lobby.maxPlayers - lobby.players.length === 1 ? "" : "s"}.</p>}
     </section>
   );
 }

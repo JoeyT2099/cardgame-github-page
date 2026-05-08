@@ -18,7 +18,6 @@ import { findBoardObject } from "./store/selectors";
 import type { AssetCategory, AssetTemplate, DeckTemplate } from "./types/assets";
 import type { AnyBoardObject, GameSession, SavedGameRecord, SessionBundle, TokenShape } from "./types/game";
 import type { AppMode, LobbyState } from "./types/lobby";
-import { lobbyPlayerToGamePlayer } from "./types/lobby";
 import type { MultiplayerMessage, NetworkStatus, PeerConnectionStatus } from "./types/multiplayer";
 import { getAssetsForSession, getRequiredAssetIdsForSession } from "./multiplayer/assetSync";
 import { ClientSync } from "./multiplayer/clientSync";
@@ -113,6 +112,58 @@ const ensurePlayerCount = (session: GameSession, count: 2 | 3 | 4): GameSession 
     )
   };
 };
+
+const ensureSessionPlayersForLobby = (session: GameSession, lobby: LobbyState): GameSession => {
+  const templatePlayers = createPlayers(lobby.maxPlayers);
+  const lobbyPlayersBySeat = new Map(
+    lobby.players.map((player, index) => [player.seatNumber ?? ((index + 1) as 1 | 2 | 3 | 4), player])
+  );
+  const ownerIdByPreviousId = new Map<string, string>();
+  const players = templatePlayers.map((templatePlayer, index) => {
+    const existing = session.players[index];
+    const lobbyPlayer = lobbyPlayersBySeat.get((index + 1) as 1 | 2 | 3 | 4);
+    const nextPlayer = lobbyPlayer
+      ? {
+          ...templatePlayer,
+          id: lobbyPlayer.playerId,
+          name: lobbyPlayer.name,
+          color: lobbyPlayer.color,
+          handCardInstanceIds: existing?.handCardInstanceIds ?? []
+        }
+      : existing
+        ? { ...templatePlayer, ...existing }
+        : templatePlayer;
+    if (existing && existing.id !== nextPlayer.id) ownerIdByPreviousId.set(existing.id, nextPlayer.id);
+    return nextPlayer;
+  });
+  const playerIds = new Set(players.map((player) => player.id));
+  const nextActivePlayerId = ownerIdByPreviousId.get(session.activePlayerId) ?? session.activePlayerId;
+  return {
+    ...session,
+    players,
+    activePlayerId: playerIds.has(nextActivePlayerId) ? nextActivePlayerId : players[0].id,
+    cardInstances: session.cardInstances.map((card) => {
+      const mappedOwnerId = card.ownerPlayerId ? ownerIdByPreviousId.get(card.ownerPlayerId) ?? card.ownerPlayerId : undefined;
+      return mappedOwnerId && playerIds.has(mappedOwnerId)
+        ? { ...card, ownerPlayerId: mappedOwnerId }
+        : card.ownerPlayerId
+          ? { ...card, ownerPlayerId: undefined, location: "board" as const }
+          : card;
+    })
+  };
+};
+
+const needsPlayerSessionSync = (current: GameSession, next: GameSession) =>
+  current.activePlayerId !== next.activePlayerId ||
+  current.players.length !== next.players.length ||
+  current.players.some((player, index) => {
+    const nextPlayer = next.players[index];
+    return !nextPlayer || player.id !== nextPlayer.id || player.name !== nextPlayer.name || player.color !== nextPlayer.color;
+  }) ||
+  current.cardInstances.some((card, index) => {
+    const nextCard = next.cardInstances[index];
+    return !nextCard || card.ownerPlayerId !== nextCard.ownerPlayerId || card.location !== nextCard.location;
+  });
 
 export default function App() {
   const [assets, setAssets] = React.useState<AssetTemplate[]>([]);
@@ -221,9 +272,14 @@ export default function App() {
   }, [session.players, session.activePlayerId, perspectivePlayerId]);
 
   React.useEffect(() => {
-    if (mode !== "local" || session.players.length === lobby.maxPlayers) return;
-    dispatchBase(createAction("LOAD_SESSION", ensurePlayerCount(session, lobby.maxPlayers), clientId));
-  }, [lobby.maxPlayers, mode, session]);
+    if (mode !== "local" && mode !== "host") return;
+    const nextSession = mode === "local" ? ensurePlayerCount(session, lobby.maxPlayers) : ensureSessionPlayersForLobby(session, lobby);
+    if (!needsPlayerSessionSync(session, nextSession)) return;
+    dispatchBase(createAction("LOAD_SESSION", nextSession, clientId));
+    if (mode === "host") {
+      hostSync.current?.broadcast({ kind: "FULL_STATE_SYNC", session: nextSession, assets: [], deckTemplates: [] });
+    }
+  }, [lobby, mode, session]);
 
   React.useEffect(() => {
     sessionRef.current = session;
@@ -299,6 +355,19 @@ export default function App() {
     if (mode === "join") {
       clientSync.current?.send({ kind: "LOBBY_PLAYER_UPDATE", playerId: targetPlayerId, updates });
     }
+    if (mode === "host") {
+      hostSync.current?.broadcast({ kind: "LOBBY_SYNC", lobby: nextLobby });
+    }
+  };
+
+  const updateMaxPlayers = (maxPlayers: 2 | 3 | 4) => {
+    const nextLobby = {
+      ...lobbyRef.current,
+      maxPlayers,
+      players: lobbyRef.current.players.filter((player) => (player.seatNumber ?? 1) <= maxPlayers)
+    };
+    lobbyRef.current = nextLobby;
+    setLobby(nextLobby);
     if (mode === "host") {
       hostSync.current?.broadcast({ kind: "LOBBY_SYNC", lobby: nextLobby });
     }
@@ -830,6 +899,12 @@ export default function App() {
         lobbyRef.current = next;
         setLobby(next);
         hostSync.current?.broadcast({ kind: "LOBBY_SYNC", lobby: next });
+        const nextSession = ensureSessionPlayersForLobby(sessionRef.current, next);
+        if (needsPlayerSessionSync(sessionRef.current, nextSession)) {
+          sessionRef.current = nextSession;
+          dispatchBase(createAction("LOAD_SESSION", nextSession, clientId));
+          hostSync.current?.broadcast({ kind: "FULL_STATE_SYNC", session: nextSession, assets: [], deckTemplates: [] });
+        }
         // Inform the joining peer of their assigned playerId so they can identify themselves.
         hostSync.current?.sendToPeer(invitePeerId, { kind: "PLAYER_ASSIGN", playerId: newPlayer.playerId });
       }
@@ -848,45 +923,6 @@ export default function App() {
     } catch (error) {
       setError(error instanceof Error ? error.message : "Invalid answer code.");
     }
-  };
-
-  const startLobbyGame = () => {
-    const sortedLobbyPlayers = [...lobby.players].sort((a, b) => (a.seatNumber ?? 1) - (b.seatNumber ?? 1));
-    const players =
-      lobby.mode === "local"
-        ? ensurePlayerCount(session, lobby.maxPlayers).players
-        : sortedLobbyPlayers.slice(0, lobby.maxPlayers).map(lobbyPlayerToGamePlayer);
-    if (lobby.mode === "host" && players.length < lobby.maxPlayers) {
-      setError("Fill each selected player seat before starting the multiplayer game.");
-      return;
-    }
-    const nextPlayerIds = new Set(players.map((player) => player.id));
-    const nextSession: GameSession = {
-      ...session,
-      name: session.name || "Multiplayer Session",
-      players,
-      activePlayerId: players[0]?.id ?? session.activePlayerId,
-      selectedObjectId: undefined,
-      cardInstances: session.cardInstances.map((card) =>
-        ({
-          ...card,
-          ...(card.ownerPlayerId && !nextPlayerIds.has(card.ownerPlayerId)
-            ? { ownerPlayerId: undefined, location: "board" as const }
-            : {})
-        })
-      ),
-      lastUpdatedAt: Date.now()
-    };
-    const nextLobby = { ...lobby, status: "in-game" as const };
-    setLobby(nextLobby);
-    dispatchBase(createAction("LOAD_SESSION", nextSession, clientId));
-    hostSync.current?.broadcast({
-      kind: "START_GAME",
-      lobby: nextLobby,
-      session: nextSession,
-      assets: getAssetsForSession(nextSession, assetsRef.current, deckTemplatesRef.current),
-      deckTemplates: deckTemplatesRef.current
-    });
   };
 
   const disconnect = () => {
@@ -930,11 +966,10 @@ export default function App() {
             lobby={lobby}
             localClientId={clientId}
             localPlayerId={localLobbyPlayerId}
-            onMaxPlayers={(maxPlayers) => setLobby((current) => ({ ...current, maxPlayers }))}
+            onMaxPlayers={updateMaxPlayers}
             onName={(name) => updateLocalLobbyPlayer({ name })}
             onReady={(ready) => updateLocalLobbyPlayer({ ready })}
             onOpenMultiplayer={() => setModal("multiplayer")}
-            onStart={startLobbyGame}
           />
           <LayersPanel
             layers={session.layers}
