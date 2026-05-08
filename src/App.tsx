@@ -368,9 +368,12 @@ export default function App() {
   };
 
   const applyAction = (action: GameAction) => {
+    if (mode === "join") {
+      clientSync.current?.send({ kind: "ACTION", action });
+      return;
+    }
     dispatchBase(action);
     if (mode === "host") hostSync.current?.broadcast({ kind: "ACTION", action });
-    if (mode === "join") clientSync.current?.send({ kind: "ACTION", action });
   };
 
   React.useEffect(() => {
