@@ -20,7 +20,7 @@ import type { AnyBoardObject, GameSession, SavedGameRecord, SessionBundle, Token
 import type { AppMode, LobbyState } from "./types/lobby";
 import { lobbyPlayerToGamePlayer } from "./types/lobby";
 import type { MultiplayerMessage, NetworkStatus, PeerConnectionStatus } from "./types/multiplayer";
-import { getAssetsForSession } from "./multiplayer/assetSync";
+import { getAssetsForSession, getRequiredAssetIdsForSession } from "./multiplayer/assetSync";
 import { ClientSync } from "./multiplayer/clientSync";
 import { HostSync } from "./multiplayer/hostSync";
 import { getAssets, saveAsset, deleteAsset } from "./storage/assetStorage";
@@ -35,6 +35,7 @@ type PendingInvite = { peerId: string; offerCode: string; createdAt: number };
 const CLIENT_ID_KEY = "cardgame-sandbox.clientId";
 const ASSIGNED_PLAYER_KEY = "cardgame-sandbox.assignedPlayerId";
 const JOIN_SEAT_KEY = "cardgame-sandbox.joinSeat";
+const MISSING_ASSET_RETRY_MS = 5_000;
 
 const getStoredValue = (key: string) => {
   try {
@@ -94,6 +95,25 @@ const getSessionPlayerIdForLobbyPlayer = (session: GameSession, lobbyPlayer?: Lo
   return session.players[(lobbyPlayer.seatNumber ?? 1) - 1]?.id ?? "";
 };
 
+const ensurePlayerCount = (session: GameSession, count: 2 | 3 | 4): GameSession => {
+  const templatePlayers = createPlayers(count);
+  const players = templatePlayers.map((templatePlayer, index) => {
+    const existing = session.players[index];
+    return existing ? { ...templatePlayer, ...existing } : templatePlayer;
+  });
+  const playerIds = new Set(players.map((player) => player.id));
+  return {
+    ...session,
+    players,
+    activePlayerId: playerIds.has(session.activePlayerId) ? session.activePlayerId : players[0].id,
+    cardInstances: session.cardInstances.map((card) =>
+      card.ownerPlayerId && !playerIds.has(card.ownerPlayerId)
+        ? { ...card, ownerPlayerId: undefined, location: "board" as const }
+        : card
+    )
+  };
+};
+
 export default function App() {
   const [assets, setAssets] = React.useState<AssetTemplate[]>([]);
   const [deckTemplates, setDeckTemplates] = React.useState<DeckTemplate[]>([]);
@@ -120,6 +140,7 @@ export default function App() {
   const modeRef = React.useRef<AppMode>("local");
   const lobbyRef = React.useRef(lobby);
   const lastHostRefreshAtRef = React.useRef(0);
+  const requestedMissingAssetAtRef = React.useRef<Map<string, number>>(new Map());
   const boardViewCenterRef = React.useRef({ x: 600, y: 360 });
   const importInputRef = React.useRef<HTMLInputElement>(null);
   const [activeLayerId, setActiveLayerId] = React.useState<string>(LAYER_IDS.cards);
@@ -183,6 +204,11 @@ export default function App() {
   }, [session.players, session.activePlayerId, perspectivePlayerId]);
 
   React.useEffect(() => {
+    if (mode !== "local" || session.players.length === lobby.maxPlayers) return;
+    dispatchBase(createAction("LOAD_SESSION", ensurePlayerCount(session, lobby.maxPlayers), clientId));
+  }, [lobby.maxPlayers, mode, session]);
+
+  React.useEffect(() => {
     sessionRef.current = session;
     saveCurrentSession(session).catch(() => setError("Failed to auto-save current session."));
   }, [session]);
@@ -205,6 +231,23 @@ export default function App() {
   React.useEffect(() => {
     deckTemplatesRef.current = deckTemplates;
   }, [deckTemplates]);
+
+  React.useEffect(() => {
+    if (mode === "local" || networkStatus !== "connected") return;
+    const availableAssetIds = new Set(assets.map((asset) => asset.id));
+    const now = Date.now();
+    const missingAssetIds = getRequiredAssetIdsForSession(session, deckTemplates).filter((assetId) => {
+      if (availableAssetIds.has(assetId)) return false;
+      const lastRequestedAt = requestedMissingAssetAtRef.current.get(assetId) ?? 0;
+      return now - lastRequestedAt >= MISSING_ASSET_RETRY_MS;
+    });
+    if (missingAssetIds.length === 0) return;
+    const uniqueMissingAssetIds = [...new Set(missingAssetIds)];
+    uniqueMissingAssetIds.forEach((assetId) => requestedMissingAssetAtRef.current.set(assetId, now));
+    const request: MultiplayerMessage = { kind: "ASSET_REQUEST", assetIds: uniqueMissingAssetIds };
+    if (mode === "host") hostSync.current?.broadcast(request);
+    if (mode === "join") clientSync.current?.send(request);
+  }, [assets, deckTemplates, mode, networkStatus, session]);
 
   React.useEffect(() => {
     modeRef.current = mode;
@@ -273,11 +316,20 @@ export default function App() {
 
   const addAssets = (incoming: AssetTemplate[], sync = true) => {
     if (incoming.length === 0) return;
+    incoming.forEach((asset) => requestedMissingAssetAtRef.current.delete(asset.id));
+    const assetsToSync = incoming.filter((asset) => {
+      const existing = assetsRef.current.find((item) => item.id === asset.id);
+      return !existing || !existing.sharedInSession || !asset.sharedInSession;
+    });
     const merged = mergeById(assetsRef.current, incoming);
     persistAssets(merged);
-    if (!sync) return;
-    if (modeRef.current === "host") hostSync.current?.broadcast({ kind: "ASSET_SYNC", assets: incoming });
-    if (modeRef.current === "join") clientSync.current?.send({ kind: "ASSET_SYNC", assets: incoming });
+    if (!sync || assetsToSync.length === 0) return;
+    try {
+      if (modeRef.current === "host") hostSync.current?.broadcast({ kind: "ASSET_SYNC", assets: assetsToSync });
+      if (modeRef.current === "join") clientSync.current?.send({ kind: "ASSET_SYNC", assets: assetsToSync });
+    } catch {
+      setError("Asset was placed locally, but multiplayer asset sync failed. Try Sync Full Session after the connection catches up.");
+    }
   };
 
   const persistDeckTemplate = (deck: DeckTemplate, sync = true) => {
@@ -288,6 +340,22 @@ export default function App() {
     if (!sync) return;
     if (modeRef.current === "host") hostSync.current?.broadcast({ kind: "DECK_TEMPLATE_SYNC", deckTemplates: [deck] });
     if (modeRef.current === "join") clientSync.current?.send({ kind: "DECK_TEMPLATE_SYNC", deckTemplates: [deck] });
+  };
+
+  const sendRequestedAssets = (assetIds: string[], peerId?: string) => {
+    const requested = new Set(assetIds.filter(Boolean));
+    if (requested.size === 0) return;
+    const responseAssets = assetsRef.current
+      .filter((asset) => requested.has(asset.id))
+      .map((asset) => ({ ...asset, sharedInSession: true }));
+    if (responseAssets.length === 0) return;
+    if (modeRef.current === "host") {
+      if (peerId) hostSync.current?.sendToPeer(peerId, { kind: "ASSET_SYNC", assets: responseAssets });
+      else hostSync.current?.broadcast({ kind: "ASSET_SYNC", assets: responseAssets });
+    }
+    if (modeRef.current === "join") {
+      clientSync.current?.send({ kind: "ASSET_SYNC", assets: responseAssets });
+    }
   };
 
   const applyAction = (action: GameAction) => {
@@ -346,6 +414,7 @@ export default function App() {
     }
     if (message.kind === "FULL_STATE_SYNC") loadSyncedState(message.session, message.assets, message.deckTemplates);
     if (message.kind === "ASSET_SYNC") addAssets(message.assets, modeRef.current === "host");
+    if (message.kind === "ASSET_REQUEST") sendRequestedAssets(message.assetIds, peerId);
     if (message.kind === "ASSET_DELETE") {
       setAssets((current) => current.filter((asset) => asset.id !== message.assetId));
       deleteAsset(message.assetId).catch(() => undefined);
@@ -770,7 +839,10 @@ export default function App() {
 
   const startLobbyGame = () => {
     const sortedLobbyPlayers = [...lobby.players].sort((a, b) => (a.seatNumber ?? 1) - (b.seatNumber ?? 1));
-    const players = lobby.mode === "local" ? createPlayers(lobby.maxPlayers) : sortedLobbyPlayers.slice(0, lobby.maxPlayers).map(lobbyPlayerToGamePlayer);
+    const players =
+      lobby.mode === "local"
+        ? ensurePlayerCount(session, lobby.maxPlayers).players
+        : sortedLobbyPlayers.slice(0, lobby.maxPlayers).map(lobbyPlayerToGamePlayer);
     if (lobby.mode === "host" && players.length < lobby.maxPlayers) {
       setError("Fill each selected player seat before starting the multiplayer game.");
       return;

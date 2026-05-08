@@ -10,6 +10,7 @@ export type MultiplayerMessage =
   | { kind: "ACTION"; action: GameAction }
   | { kind: "FULL_STATE_SYNC"; session: GameSession; assets: AssetTemplate[]; deckTemplates: DeckTemplate[] }
   | { kind: "ASSET_SYNC"; assets: AssetTemplate[] }
+  | { kind: "ASSET_REQUEST"; assetIds: string[] }
   | { kind: "ASSET_DELETE"; assetId: string }
   | { kind: "DECK_TEMPLATE_SYNC"; deckTemplates: DeckTemplate[] }
   | { kind: "LOBBY_SYNC"; lobby: LobbyState }
