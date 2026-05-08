@@ -7,7 +7,6 @@ export const getRequiredAssetIdsForSession = (session: GameSession, deckTemplate
   session.deckInstances.forEach((instance) => {
     instance.remainingCardAssetIds.forEach((assetId) => required.add(assetId));
     instance.drawnCardAssetIds.forEach((assetId) => required.add(assetId));
-    if (instance.backAssetId) required.add(instance.backAssetId);
   });
   session.deckInstances.forEach((instance) => {
     const template = deckTemplates.find((item) => item.id === instance.deckTemplateId);

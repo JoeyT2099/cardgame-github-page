@@ -164,6 +164,23 @@ export default function App() {
     [localSelectedObjectId, session]
   );
 
+  const requestMissingAssets = React.useCallback(() => {
+    if (mode === "local" || networkStatus !== "connected") return;
+    const availableAssetIds = new Set(assets.map((asset) => asset.id));
+    const now = Date.now();
+    const missingAssetIds = getRequiredAssetIdsForSession(session, deckTemplates).filter((assetId) => {
+      if (availableAssetIds.has(assetId)) return false;
+      const lastRequestedAt = requestedMissingAssetAtRef.current.get(assetId) ?? 0;
+      return now - lastRequestedAt >= MISSING_ASSET_RETRY_MS;
+    });
+    if (missingAssetIds.length === 0) return;
+    const uniqueMissingAssetIds = [...new Set(missingAssetIds)];
+    uniqueMissingAssetIds.forEach((assetId) => requestedMissingAssetAtRef.current.set(assetId, now));
+    const request: MultiplayerMessage = { kind: "ASSET_REQUEST", assetIds: uniqueMissingAssetIds };
+    if (mode === "host") hostSync.current?.broadcast(request);
+    if (mode === "join") clientSync.current?.send(request);
+  }, [assets, deckTemplates, mode, networkStatus, session]);
+
   const placedAssetIds = React.useMemo(() => {
     const ids: string[] = [];
     if (session.boardAssetId) ids.push(session.boardAssetId);
@@ -233,21 +250,11 @@ export default function App() {
   }, [deckTemplates]);
 
   React.useEffect(() => {
+    requestMissingAssets();
     if (mode === "local" || networkStatus !== "connected") return;
-    const availableAssetIds = new Set(assets.map((asset) => asset.id));
-    const now = Date.now();
-    const missingAssetIds = getRequiredAssetIdsForSession(session, deckTemplates).filter((assetId) => {
-      if (availableAssetIds.has(assetId)) return false;
-      const lastRequestedAt = requestedMissingAssetAtRef.current.get(assetId) ?? 0;
-      return now - lastRequestedAt >= MISSING_ASSET_RETRY_MS;
-    });
-    if (missingAssetIds.length === 0) return;
-    const uniqueMissingAssetIds = [...new Set(missingAssetIds)];
-    uniqueMissingAssetIds.forEach((assetId) => requestedMissingAssetAtRef.current.set(assetId, now));
-    const request: MultiplayerMessage = { kind: "ASSET_REQUEST", assetIds: uniqueMissingAssetIds };
-    if (mode === "host") hostSync.current?.broadcast(request);
-    if (mode === "join") clientSync.current?.send(request);
-  }, [assets, deckTemplates, mode, networkStatus, session]);
+    const interval = window.setInterval(requestMissingAssets, MISSING_ASSET_RETRY_MS);
+    return () => window.clearInterval(interval);
+  }, [mode, networkStatus, requestMissingAssets]);
 
   React.useEffect(() => {
     modeRef.current = mode;
@@ -308,10 +315,12 @@ export default function App() {
       .catch(() => setError("IndexedDB unavailable or failed to load saved data."));
   }, []);
 
-  const persistAssets = (nextAssets: AssetTemplate[]) => {
+  const persistAssets = (nextAssets: AssetTemplate[], assetsToSave?: AssetTemplate[]) => {
+    const previousAssets = new Map(assetsRef.current.map((asset) => [asset.id, asset]));
+    const changedAssets = assetsToSave ?? nextAssets.filter((asset) => previousAssets.get(asset.id) !== asset);
     assetsRef.current = nextAssets;
     setAssets(nextAssets);
-    nextAssets.forEach((asset) => saveAsset(asset).catch(() => setError("Failed to save asset.")));
+    changedAssets.forEach((asset) => saveAsset(asset).catch(() => setError("Failed to save asset.")));
   };
 
   const addAssets = (incoming: AssetTemplate[], sync = true) => {
@@ -322,7 +331,7 @@ export default function App() {
       return !existing || !existing.sharedInSession || !asset.sharedInSession;
     });
     const merged = mergeById(assetsRef.current, incoming);
-    persistAssets(merged);
+    persistAssets(merged, incoming);
     if (!sync || assetsToSync.length === 0) return;
     try {
       if (modeRef.current === "host") hostSync.current?.broadcast({ kind: "ASSET_SYNC", assets: assetsToSync });
@@ -827,7 +836,8 @@ export default function App() {
         const nextInvite = pendingInvites.find((invite) => invite.peerId !== invitePeerId);
         return nextInvite?.peerId ?? "";
       });
-      hostSync.current?.syncFullState(
+      hostSync.current?.syncFullStateToPeer(
+        invitePeerId,
         sessionRef.current,
         getAssetsForSession(sessionRef.current, assetsRef.current, deckTemplatesRef.current),
         deckTemplatesRef.current
@@ -867,7 +877,7 @@ export default function App() {
     const nextLobby = { ...lobby, status: "in-game" as const };
     setLobby(nextLobby);
     dispatchBase(createAction("LOAD_SESSION", nextSession, clientId));
-    hostSync.current?.broadcast({ kind: "START_GAME", lobby: nextLobby, session: nextSession, assets: getAssetsForSession(nextSession, assets, deckTemplates), deckTemplates });
+    hostSync.current?.broadcast({ kind: "START_GAME", lobby: nextLobby, session: nextSession, assets: [], deckTemplates });
   };
 
   const disconnect = () => {

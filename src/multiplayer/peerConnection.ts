@@ -5,6 +5,7 @@ const CHUNK_SIZE = 12_000;
 const MAX_CHUNK_AGE_MS = 60_000;
 const BUFFER_HIGH_WATER_MARK = 256_000;
 const BUFFER_LOW_WATER_MARK = 64_000;
+const FULL_STATE_REPLACE_KEY = "FULL_STATE_SYNC";
 
 interface ChunkEnvelope {
   kind: typeof CHUNK_KIND;
@@ -12,6 +13,11 @@ interface ChunkEnvelope {
   index: number;
   total: number;
   data: string;
+}
+
+interface PendingFrame {
+  data: string;
+  replaceKey?: string;
 }
 
 const isChunkEnvelope = (value: unknown): value is ChunkEnvelope => {
@@ -50,7 +56,7 @@ export class ManualPeer implements PeerTransport {
   peerId: string;
   private connection: RTCPeerConnection;
   private channel?: RTCDataChannel;
-  private pendingMessages: string[] = [];
+  private pendingMessages: PendingFrame[] = [];
   private flushTimer?: number;
   private receivedChunks = new Map<string, { chunks: string[]; received: number; total: number; createdAt: number }>();
   private onMessage: (message: unknown, peerId: string) => void;
@@ -114,7 +120,11 @@ export class ManualPeer implements PeerTransport {
 
   send(message: unknown) {
     const encoded = JSON.stringify(message);
-    const frames = this.encodeFrames(encoded);
+    const replaceKey = this.getReplaceKey(message);
+    if (replaceKey) {
+      this.pendingMessages = this.pendingMessages.filter((frame) => frame.replaceKey !== replaceKey);
+    }
+    const frames = this.encodeFrames(encoded).map((data) => ({ data, replaceKey }));
     this.pendingMessages.push(...frames);
     // Host-side lobby/session sync can be produced immediately after an answer is accepted,
     // before the DataChannel has fired "open". Queue it so joiners receive the first state.
@@ -127,7 +137,7 @@ export class ManualPeer implements PeerTransport {
       const next = this.pendingMessages.shift();
       if (!next) break;
       try {
-        this.channel.send(next);
+        this.channel.send(next.data);
       } catch {
         this.pendingMessages.unshift(next);
         this.scheduleFlush();
@@ -158,6 +168,18 @@ export class ManualPeer implements PeerTransport {
         data: encoded.slice(index * CHUNK_SIZE, (index + 1) * CHUNK_SIZE)
       } satisfies ChunkEnvelope)
     );
+  }
+
+  private getReplaceKey(message: unknown) {
+    if (!message || typeof message !== "object") return undefined;
+    const candidate = message as { kind?: unknown; assets?: unknown[]; deckTemplates?: unknown[] };
+    return candidate.kind === FULL_STATE_REPLACE_KEY &&
+      Array.isArray(candidate.assets) &&
+      candidate.assets.length === 0 &&
+      Array.isArray(candidate.deckTemplates) &&
+      candidate.deckTemplates.length === 0
+      ? FULL_STATE_REPLACE_KEY
+      : undefined;
   }
 
   private handleRawMessage(raw: string) {

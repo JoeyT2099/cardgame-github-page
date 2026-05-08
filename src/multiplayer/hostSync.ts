@@ -48,6 +48,10 @@ export class HostSync {
     this.broadcast({ kind: "FULL_STATE_SYNC", session, assets, deckTemplates });
   }
 
+  syncFullStateToPeer(peerId: string, session: GameSession, assets: AssetTemplate[], deckTemplates: DeckTemplate[]) {
+    this.sendToPeer(peerId, { kind: "FULL_STATE_SYNC", session, assets, deckTemplates });
+  }
+
   close() {
     this.peers.forEach((peer) => peer.close());
     this.peers.clear();
