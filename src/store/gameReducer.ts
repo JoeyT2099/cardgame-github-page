@@ -5,6 +5,18 @@ import { createCanvasTabs, createEmptySession, DEFAULT_LAYERS, LAYER_IDS, MAIN_C
 import { getNextZIndex } from "./selectors";
 
 const touch = (session: GameSession): GameSession => ({ ...session, lastUpdatedAt: Date.now() });
+const DEFAULT_CARD_WIDTH = 200;
+const DEFAULT_CARD_HEIGHT = 280;
+const DEFAULT_TOKEN_SIZE = 100;
+
+const shuffleItems = <T,>(items: T[]) => {
+  const shuffled = [...items];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+  return shuffled;
+};
 
 const ensureDefaultLayer = (layers: Layer[]): Layer[] => {
   const normalized = layers.length > 0 ? layers.map((layer) => ({ ...layer })) : DEFAULT_LAYERS.map((layer) => ({ ...layer }));
@@ -33,7 +45,7 @@ const migrateSession = (session: GameSession): GameSession => {
     ...session,
     layers,
     canvasTabs,
-    deckInstances: session.deckInstances.map((item) => ({ ...item, layerId: validLayerOr(item.layerId, cardLayerId), canvasId: item.canvasId ?? defaultCanvasId })),
+    deckInstances: session.deckInstances.map((item) => ({ ...item, cardBackAssetIds: item.cardBackAssetIds ?? {}, layerId: validLayerOr(item.layerId, cardLayerId), canvasId: item.canvasId ?? defaultCanvasId })),
     cardInstances: session.cardInstances.map((item) => ({ ...item, layerId: validLayerOr(item.layerId, cardLayerId), canvasId: item.canvasId ?? defaultCanvasId })),
     discardPiles: session.discardPiles.map((item) => ({ ...item, layerId: validLayerOr(item.layerId, cardLayerId), canvasId: item.canvasId ?? defaultCanvasId })),
     tokenInstances: session.tokenInstances.map((item) => ({ ...item, layerId: validLayerOr(item.layerId, tokenLayerId), canvasId: item.canvasId ?? defaultCanvasId, shape: item.shape ?? "square" })),
@@ -95,7 +107,7 @@ export const resolveDrawAction = (
       chosenCardAssetId,
       chosenCardIndex,
       cardInstanceId: action.payload.cardInstanceId ?? crypto.randomUUID(),
-      backAssetId: template?.cardBackAssetIds?.[chosenCardAssetId] || template?.defaultBackAssetId
+      backAssetId: deck.cardBackAssetIds?.[chosenCardAssetId] || template?.cardBackAssetIds?.[chosenCardAssetId] || template?.defaultBackAssetId
     }
   };
 };
@@ -170,8 +182,8 @@ export const gameReducer = (session: GameSession, action: GameAction): GameSessi
         y: 40,
         rotation: 0,
         zIndex: getNextZIndex(session),
-        width: 96,
-        height: 136,
+        width: DEFAULT_CARD_WIDTH,
+        height: DEFAULT_CARD_HEIGHT,
         faceUp: false,
         backAssetId: payload.backAssetId,
         layerId: deck.layerId ?? LAYER_IDS.cards,
@@ -278,6 +290,7 @@ export const gameReducer = (session: GameSession, action: GameAction): GameSessi
             ? {
                 ...deck,
                 drawnCardAssetIds: deck.drawnCardAssetIds.filter((id, index) => id !== card.assetId || index !== deck.drawnCardAssetIds.indexOf(card.assetId)),
+                cardBackAssetIds: card.backAssetId ? { ...(deck.cardBackAssetIds ?? {}), [card.assetId]: card.backAssetId } : deck.cardBackAssetIds,
                 remainingCardAssetIds:
                   payload.position === "bottom"
                     ? [...deck.remainingCardAssetIds, card.assetId]
@@ -287,6 +300,39 @@ export const gameReducer = (session: GameSession, action: GameAction): GameSessi
         ),
         cardInstances: withoutHands.cardInstances.filter((item) => item.id !== payload.cardId),
         selectedObjectId: payload.deckInstanceId
+      });
+    }
+    case "MOVE_DISCARD_TO_DECK": {
+      const payload = action.payload as { discardPileId: string; deckInstanceId: string; position: "top" | "bottom" | "shuffle"; shuffledCardAssetIds?: string[] };
+      const pile = session.discardPiles.find((item) => item.id === payload.discardPileId);
+      const targetDeck = session.deckInstances.find((item) => item.id === payload.deckInstanceId);
+      if (!pile || !targetDeck || pile.cardInstanceIds.length === 0) return session;
+      const discardCards = pile.cardInstanceIds
+        .map((cardId) => session.cardInstances.find((card) => card.id === cardId))
+        .filter((card): card is CardInstance => Boolean(card));
+      const discardAssetIds = discardCards.map((card) => card.assetId);
+      const mergedCardBacks = discardCards.reduce<Record<string, string>>((backs, card) => {
+        if (card.backAssetId) backs[card.assetId] = card.backAssetId;
+        return backs;
+      }, { ...(targetDeck.cardBackAssetIds ?? {}) });
+      const nextRemaining =
+        payload.position === "shuffle"
+          ? payload.shuffledCardAssetIds ?? shuffleItems([...targetDeck.remainingCardAssetIds, ...discardAssetIds])
+          : payload.position === "bottom"
+            ? [...targetDeck.remainingCardAssetIds, ...discardAssetIds]
+            : [...discardAssetIds, ...targetDeck.remainingCardAssetIds];
+      return touch({
+        ...session,
+        deckInstances: session.deckInstances.map((deck) =>
+          deck.id === targetDeck.id
+            ? { ...deck, remainingCardAssetIds: nextRemaining, cardBackAssetIds: mergedCardBacks }
+            : deck
+        ),
+        discardPiles: session.discardPiles.map((discard) =>
+          discard.id === pile.id ? { ...discard, cardInstanceIds: [] } : discard
+        ),
+        cardInstances: session.cardInstances.filter((card) => !pile.cardInstanceIds.includes(card.id)),
+        selectedObjectId: targetDeck.id
       });
     }
     case "RENAME_DISCARD_PILE": {
@@ -313,7 +359,7 @@ export const gameReducer = (session: GameSession, action: GameAction): GameSessi
         ...session,
         tokenInstances: [
           ...session.tokenInstances,
-          { id: payload.id, assetId: payload.assetId, label: payload.label, color: payload.color, shape: payload.shape ?? "square", x: payload.x, y: payload.y, rotation: 0, zIndex: getNextZIndex(session), width: payload.width ?? 64, height: payload.height ?? 64, layerId: payload.layerId ?? LAYER_IDS.tokens, canvasId: payload.canvasId ?? MAIN_CANVAS_ID }
+          { id: payload.id, assetId: payload.assetId, label: payload.label, color: payload.color, shape: payload.shape ?? "square", x: payload.x, y: payload.y, rotation: 0, zIndex: getNextZIndex(session), width: payload.width ?? DEFAULT_TOKEN_SIZE, height: payload.height ?? DEFAULT_TOKEN_SIZE, layerId: payload.layerId ?? LAYER_IDS.tokens, canvasId: payload.canvasId ?? MAIN_CANVAS_ID }
         ],
         selectedObjectId: payload.id
       });
@@ -336,13 +382,22 @@ export const gameReducer = (session: GameSession, action: GameAction): GameSessi
         )
       });
     }
+    case "UPDATE_TOKEN_LABEL": {
+      const payload = action.payload as { tokenId: string; label: string };
+      return touch({
+        ...session,
+        tokenInstances: session.tokenInstances.map((token) =>
+          token.id === payload.tokenId ? { ...token, label: payload.label } : token
+        )
+      });
+    }
     case "PLACE_IMAGE": {
       const payload = action.payload as { id: string; assetId: string; x: number; y: number; width?: number; height?: number; layerId?: string; canvasId?: string };
       return touch({
         ...session,
         placedImageInstances: [
           ...session.placedImageInstances,
-          { id: payload.id, assetId: payload.assetId, x: payload.x, y: payload.y, rotation: 0, zIndex: getNextZIndex(session), width: payload.width ?? 180, height: payload.height ?? 140, layerId: payload.layerId ?? LAYER_IDS.board, canvasId: payload.canvasId ?? MAIN_CANVAS_ID }
+          { id: payload.id, assetId: payload.assetId, x: payload.x, y: payload.y, rotation: 0, zIndex: getNextZIndex(session), width: payload.width ?? DEFAULT_CARD_WIDTH, height: payload.height ?? DEFAULT_CARD_HEIGHT, layerId: payload.layerId ?? LAYER_IDS.board, canvasId: payload.canvasId ?? MAIN_CANVAS_ID }
         ],
         selectedObjectId: payload.id
       });

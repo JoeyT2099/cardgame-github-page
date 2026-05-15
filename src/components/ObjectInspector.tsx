@@ -19,6 +19,7 @@ interface ObjectInspectorProps {
   onMoveCardToHand: (cardId: string, playerId: string) => void;
   onMoveCardToDiscard: (cardId: string, discardPileId: string) => void;
   onMoveCardToDeck: (cardId: string, deckInstanceId: string, position?: "top" | "bottom") => void;
+  onMoveDiscardToDeck: (discardPileId: string, deckInstanceId: string, position: "top" | "bottom" | "shuffle") => void;
   onRenameDiscard: (discardPileId: string, name: string) => void;
   onDrawDeck: (deckInstanceId: string, playerId?: string, drawMode?: "top" | "random", chosenCardIndex?: number) => void;
   onShuffleDeck: (deckInstanceId: string) => void;
@@ -27,6 +28,7 @@ interface ObjectInspectorProps {
   onAssignLayer: (object: AnyBoardObject, layerId: string) => void;
   onTokenColor: (tokenId: string, color: string) => void;
   onTokenShape: (tokenId: string, shape: TokenShape) => void;
+  onTokenLabel: (tokenId: string, label: string) => void;
 }
 
 const colorToHue = (color = "hsl(45 93% 60%)") => {
@@ -70,6 +72,7 @@ export function ObjectInspector(props: ObjectInspectorProps) {
   const [isExamining, setIsExamining] = React.useState(false);
   const [examineFaceUp, setExamineFaceUp] = React.useState(true);
   const [deckTargetPlayerId, setDeckTargetPlayerId] = React.useState("");
+  const [discardTargetDeckId, setDiscardTargetDeckId] = React.useState("");
   const assetMap = React.useMemo(() => new Map(props.assets.map((asset) => [asset.id, asset])), [props.assets]);
   const cardMap = React.useMemo(() => new Map(props.session.cardInstances.map((card) => [card.id, card])), [props.session.cardInstances]);
 
@@ -89,6 +92,11 @@ export function ObjectInspector(props: ObjectInspectorProps) {
     if (!deckTargetPlayerId || props.session.players.some((player) => player.id === deckTargetPlayerId)) return;
     setDeckTargetPlayerId("");
   }, [deckTargetPlayerId, props.session.players]);
+
+  React.useEffect(() => {
+    if (!discardTargetDeckId || props.session.deckInstances.some((deck) => deck.id === discardTargetDeckId)) return;
+    setDiscardTargetDeckId("");
+  }, [discardTargetDeckId, props.session.deckInstances]);
 
   const discardPreview = previewAsset ? (
     <div className="hand-card-preview" aria-hidden="true">
@@ -274,6 +282,10 @@ export function ObjectInspector(props: ObjectInspectorProps) {
       )}
       {object.type === "token" && !object.assetId && (
         <div className="inspector-section">
+          <label>
+            Token Label
+            <input value={object.label ?? ""} onChange={(event) => props.onTokenLabel(object.id, event.target.value)} />
+          </label>
           <label className="token-color-slider">
             Token Color
             <span style={{ background: object.color ?? "hsl(45 93% 60%)" }} />
@@ -321,6 +333,22 @@ export function ObjectInspector(props: ObjectInspectorProps) {
           </label>
           <h3>Discarded Cards</h3>
           {object.cardInstanceIds.length === 0 && <p className="muted">Empty discard pile.</p>}
+          {object.cardInstanceIds.length > 0 && props.session.deckInstances.length > 0 && (
+            <div className="inspector-section">
+              <label>
+                Move Pile to Deck
+                <select value={discardTargetDeckId} onChange={(event) => setDiscardTargetDeckId(event.target.value)}>
+                  <option value="">Choose deck</option>
+                  {props.session.deckInstances.map((deck) => <option key={deck.id} value={deck.id}>{deck.name}</option>)}
+                </select>
+              </label>
+              <div className="button-row">
+                <button title="Put this discard pile on top of the selected deck." disabled={!discardTargetDeckId} onClick={() => props.onMoveDiscardToDeck(object.id, discardTargetDeckId, "top")}>Top</button>
+                <button title="Put this discard pile on the bottom of the selected deck." disabled={!discardTargetDeckId} onClick={() => props.onMoveDiscardToDeck(object.id, discardTargetDeckId, "bottom")}>Bottom</button>
+                <button title="Shuffle this discard pile into the selected deck." disabled={!discardTargetDeckId} onClick={() => props.onMoveDiscardToDeck(object.id, discardTargetDeckId, "shuffle")}>Shuffle In</button>
+              </div>
+            </div>
+          )}
           <div className="discard-card-list">
             {object.cardInstanceIds.map((cardId, index) => {
               const card = props.session.cardInstances.find((item) => item.id === cardId);

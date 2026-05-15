@@ -14,6 +14,7 @@ interface ToolbarProps {
   onExport: () => void;
   onImport: () => void;
   onNewSession: () => void;
+  onUndo: () => void;
   layers: Layer[];
   activeLayerId: string;
   onSetActiveLayer: (layerId: string) => void;
@@ -31,6 +32,7 @@ export function Toolbar(props: ToolbarProps) {
       <button title="Choose and place a token." onClick={props.onAddToken}>Add Token</button>
       <button title="Place an image on the active layer." onClick={props.onPlaceImage}>Place Image</button>
       <button title="Open multiplayer host and join controls." onClick={props.onOpenMultiplayer}>Multiplayer</button>
+      <button title="Undo your previous table action." onClick={props.onUndo}>Undo</button>
       <button title="Save the table as a reusable game." onClick={props.onSaveGame}>Save Game</button>
       <button title="Open saved games." onClick={props.onLoad}>Load Game</button>
       <button title="Export the current game file." onClick={props.onExport}>Export Game</button>

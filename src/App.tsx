@@ -30,10 +30,10 @@ import { loadCurrentSession, saveCurrentSession } from "./storage/sessionStorage
 
 type ModalName = "assets" | "setBoard" | "createDeck" | "addDeck" | "placeImage" | "token" | "games" | "multiplayer" | undefined;
 type PendingInvite = { peerId: string; offerCode: string; createdAt: number };
+type UndoEntry = { actorId: string; before: GameSession; action: GameAction };
 
 const CLIENT_ID_KEY = "cardgame-sandbox.clientId";
 const ASSIGNED_PLAYER_KEY = "cardgame-sandbox.assignedPlayerId";
-const JOIN_SEAT_KEY = "cardgame-sandbox.joinSeat";
 const MISSING_ASSET_RETRY_MS = 5_000;
 
 const getStoredValue = (key: string) => {
@@ -58,11 +58,6 @@ const getClientId = () => {
   const next = crypto.randomUUID();
   setStoredValue(CLIENT_ID_KEY, next);
   return next;
-};
-
-const getJoinSeat = (): 2 | 3 | 4 => {
-  const stored = Number(getStoredValue(JOIN_SEAT_KEY));
-  return stored === 3 || stored === 4 ? stored : 2;
 };
 
 const clientId = getClientId();
@@ -185,10 +180,10 @@ export default function App() {
   const [peers, setPeers] = React.useState<PeerConnectionStatus[]>([]);
   // In multiplayer (join) mode, the host sends us our assigned playerId via PLAYER_ASSIGN.
   const [myAssignedPlayerId, setMyAssignedPlayerId] = React.useState<string>(() => getStoredValue(ASSIGNED_PLAYER_KEY));
-  const [joinSeat, setJoinSeat] = React.useState<2 | 3 | 4>(() => getJoinSeat());
   const hostSync = React.useRef<HostSync | null>(null);
   const clientSync = React.useRef<ClientSync | null>(null);
   const modeRef = React.useRef<AppMode>("local");
+  const undoHistoryRef = React.useRef<UndoEntry[]>([]);
   const lobbyRef = React.useRef(lobby);
   const lastHostRefreshAtRef = React.useRef(0);
   const requestedMissingAssetAtRef = React.useRef<Map<string, number>>(new Map());
@@ -320,10 +315,6 @@ export default function App() {
     if (myAssignedPlayerId) setStoredValue(ASSIGNED_PLAYER_KEY, myAssignedPlayerId);
   }, [myAssignedPlayerId]);
 
-  React.useEffect(() => {
-    setStoredValue(JOIN_SEAT_KEY, String(joinSeat));
-  }, [joinSeat]);
-
   // Keep lobbyRef current so applyHostAction can validate without stale closure.
   React.useEffect(() => {
     lobbyRef.current = lobby;
@@ -436,6 +427,47 @@ export default function App() {
     }
   };
 
+  const recordUndoSnapshot = (actorId: string, snapshot: GameSession, action: GameAction) => {
+    undoHistoryRef.current = [...undoHistoryRef.current.slice(-99), { actorId, before: snapshot, action }];
+  };
+
+  const undoLastActionFor = (actorId: string) => {
+    const history = undoHistoryRef.current;
+    let undoIndex = -1;
+    for (let index = history.length - 1; index >= 0; index -= 1) {
+      if (history[index].actorId === actorId) {
+        undoIndex = index;
+        break;
+      }
+    }
+    if (undoIndex < 0) {
+      setError("No previous action to undo.");
+      return;
+    }
+    let replayedSession = history[undoIndex].before;
+    const replayedTail: UndoEntry[] = [];
+    for (const entry of history.slice(undoIndex + 1)) {
+      const before = replayedSession;
+      replayedSession = gameReducer(replayedSession, entry.action);
+      replayedTail.push({ ...entry, before });
+    }
+    undoHistoryRef.current = [...history.slice(0, undoIndex), ...replayedTail];
+    sessionRef.current = replayedSession;
+    setLocalSelectedObjectId(undefined);
+    dispatchBase(createAction("LOAD_SESSION", replayedSession, clientId));
+    if (modeRef.current === "host") {
+      hostSync.current?.broadcast({ kind: "FULL_STATE_SYNC", session: replayedSession, assets: [], deckTemplates: [] });
+    }
+  };
+
+  const undoLastAction = () => {
+    if (mode === "join") {
+      clientSync.current?.send({ kind: "UNDO_REQUEST" });
+      return;
+    }
+    undoLastActionFor(clientId);
+  };
+
   const sendFullStateToPeer = (peerId: string) => {
     const currentSession = sessionRef.current;
     const currentDeckTemplates = deckTemplatesRef.current;
@@ -473,6 +505,7 @@ export default function App() {
       clientSync.current?.send({ kind: "ACTION", action });
       return;
     }
+    recordUndoSnapshot(clientId, sessionRef.current, action);
     dispatchBase(action);
     if (mode === "host") hostSync.current?.broadcast({ kind: "ACTION", action });
   };
@@ -501,11 +534,27 @@ export default function App() {
         }
       }
     }
-    const resolved = action.type === "DRAW_CARD" ? resolveDrawAction(sessionRef.current, deckTemplatesRef.current, action as GameAction<{ deckInstanceId: string; playerId: string; chosenCardIndex?: number; drawMode?: "top" | "random" }>) : action;
+    const normalizedAction =
+      action.type === "MOVE_DISCARD_TO_DECK" && (action.payload as { position?: string; shuffledCardAssetIds?: string[] }).position === "shuffle"
+        ? {
+            ...action,
+            payload: {
+              ...(action.payload as object),
+              shuffledCardAssetIds:
+                (action.payload as { shuffledCardAssetIds?: string[] }).shuffledCardAssetIds ??
+                getShuffledDiscardDeckAssetIds(
+                  (action.payload as { discardPileId: string }).discardPileId,
+                  (action.payload as { deckInstanceId: string }).deckInstanceId
+                )
+            }
+          }
+        : action;
+    const resolved = normalizedAction.type === "DRAW_CARD" ? resolveDrawAction(sessionRef.current, deckTemplatesRef.current, normalizedAction as GameAction<{ deckInstanceId: string; playerId: string; chosenCardIndex?: number; drawMode?: "top" | "random" }>) : normalizedAction;
     if (!resolved) {
       setError("Deck is empty or draw is invalid.");
       return;
     }
+    recordUndoSnapshot(action.clientId || clientId, sessionRef.current, resolved);
     dispatchBase(resolved);
     hostSync.current?.broadcast({ kind: "ACTION", action: resolved });
   };
@@ -520,6 +569,9 @@ export default function App() {
   };
 
   const handleNetworkMessage = (message: MultiplayerMessage, peerId?: string) => {
+    if (message.kind === "UNDO_REQUEST" && modeRef.current === "host" && peerId) {
+      undoLastActionFor(peerId);
+    }
     if (message.kind === "FULL_STATE_REQUEST" && modeRef.current === "host" && peerId) {
       sendFullStateToPeer(peerId);
     }
@@ -569,7 +621,7 @@ export default function App() {
     if (message.kind === "ERROR") setError(message.message);
   };
 
-  const placeBoardImage = (assetId: string, width = 720, height = 420) => {
+  const placeBoardImage = (assetId: string, width = 1400, height = 400) => {
     const asset = assets.find((item) => item.id === assetId);
     if (asset) addAssets([{ ...asset, sharedInSession: true }]);
     const { x, y } = centeredPlacement(width, height);
@@ -579,7 +631,7 @@ export default function App() {
     setModal(undefined);
   };
 
-  const placeImage = (assetId: string, width = 180, height = 140) => {
+  const placeImage = (assetId: string, width = 200, height = 280) => {
     const asset = assets.find((item) => item.id === assetId);
     if (asset) addAssets([{ ...asset, sharedInSession: true }]);
     const { x, y } = centeredPlacement(width, height);
@@ -589,7 +641,7 @@ export default function App() {
     setModal(undefined);
   };
 
-  const createTokenFromAsset = (assetId: string, width = 64, height = 64, shape: TokenShape = "square") => {
+  const createTokenFromAsset = (assetId: string, width = 100, height = 100, shape: TokenShape = "square") => {
     const asset = assets.find((item) => item.id === assetId);
     if (asset) addAssets([{ ...asset, sharedInSession: true }]);
     const { x, y } = centeredPlacement(width, height);
@@ -599,7 +651,7 @@ export default function App() {
     setModal(undefined);
   };
 
-  const createGenericToken = (width = 64, height = 64, shape: TokenShape = "square") => {
+  const createGenericToken = (width = 100, height = 100, shape: TokenShape = "square") => {
     const { x, y } = centeredPlacement(width, height);
     const id = crypto.randomUUID();
     setLocalSelectedObjectId(id);
@@ -715,18 +767,18 @@ export default function App() {
   const moveLayerUp = (layerId: string) => {
     const sorted = [...session.layers].sort((a, b) => a.order - b.order);
     const idx = sorted.findIndex((l) => l.id === layerId);
-    if (idx <= 0) return;
+    if (idx < 0 || idx >= sorted.length - 1) return;
     const reordered = [...sorted];
-    [reordered[idx - 1], reordered[idx]] = [reordered[idx], reordered[idx - 1]];
+    [reordered[idx], reordered[idx + 1]] = [reordered[idx + 1], reordered[idx]];
     applyAction(createAction("REORDER_LAYERS", { layerIds: reordered.map((l) => l.id) }, clientId));
   };
 
   const moveLayerDown = (layerId: string) => {
     const sorted = [...session.layers].sort((a, b) => a.order - b.order);
     const idx = sorted.findIndex((l) => l.id === layerId);
-    if (idx < 0 || idx >= sorted.length - 1) return;
+    if (idx <= 0) return;
     const reordered = [...sorted];
-    [reordered[idx], reordered[idx + 1]] = [reordered[idx + 1], reordered[idx]];
+    [reordered[idx - 1], reordered[idx]] = [reordered[idx], reordered[idx - 1]];
     applyAction(createAction("REORDER_LAYERS", { layerIds: reordered.map((l) => l.id) }, clientId));
   };
 
@@ -760,6 +812,30 @@ export default function App() {
       return;
     }
     applyAction(resolved);
+  };
+
+  const getShuffledDiscardDeckAssetIds = (discardPileId: string, deckInstanceId: string) => {
+    const currentSession = sessionRef.current;
+    const deck = currentSession.deckInstances.find((item) => item.id === deckInstanceId);
+    const pile = currentSession.discardPiles.find((item) => item.id === discardPileId);
+    if (!deck || !pile) return undefined;
+    const discardAssetIds = pile.cardInstanceIds
+      .map((cardId) => currentSession.cardInstances.find((card) => card.id === cardId)?.assetId)
+      .filter((assetId): assetId is string => Boolean(assetId));
+    return shuffleItems([...deck.remainingCardAssetIds, ...discardAssetIds]);
+  };
+
+  const moveDiscardToDeck = (discardPileId: string, deckInstanceId: string, position: "top" | "bottom" | "shuffle") => {
+    const payload = {
+      discardPileId,
+      deckInstanceId,
+      position,
+      ...(position === "shuffle" && mode !== "join"
+        ? { shuffledCardAssetIds: getShuffledDiscardDeckAssetIds(discardPileId, deckInstanceId) }
+        : {})
+    };
+    setLocalSelectedObjectId(deckInstanceId);
+    applyAction(createAction("MOVE_DISCARD_TO_DECK", payload, clientId));
   };
 
   const moveObject = (objectType: AnyBoardObject["type"], objectId: string, x: number, y: number) =>
@@ -888,16 +964,15 @@ export default function App() {
     }
   };
 
-  const joinHost = async (code: string, seat: 2 | 3 | 4) => {
+  const joinHost = async (code: string) => {
     try {
-      setJoinSeat(seat);
       const client = new ClientSync((message) => handleNetworkMessage(message), (connected) => setNetworkStatus(connected ? "connected" : "disconnected"));
       clientSync.current = client;
       setMode("join");
       setMyAssignedPlayerId("");
       setLobby((current) => ({ ...current, mode: "join" }));
       setNetworkStatus("connecting");
-      setAnswerCode(await client.joinFromOffer(code, seat));
+      setAnswerCode(await client.joinFromOffer(code));
     } catch (error) {
       setNetworkStatus("error");
       setError(error instanceof Error ? error.message : "Invalid offer code.");
@@ -993,6 +1068,7 @@ export default function App() {
         onAddToken={() => setModal("token")}
         onPlaceImage={() => setModal("placeImage")}
         onOpenMultiplayer={() => setModal("multiplayer")}
+        onUndo={undoLastAction}
         onSaveGame={() => saveGame()}
         onLoad={() => setModal("games")}
         onExport={exportSession}
@@ -1098,6 +1174,7 @@ export default function App() {
             setLocalSelectedObjectId(deckInstanceId);
             applyAction(createAction("MOVE_CARD_TO_DECK", { cardId, deckInstanceId, position }, clientId));
           }}
+          onMoveDiscardToDeck={moveDiscardToDeck}
           onRenameDiscard={(discardPileId, name) => applyAction(createAction("RENAME_DISCARD_PILE", { discardPileId, name }, clientId))}
           onDrawDeck={drawDeck}
           onShuffleDeck={shuffleDeck}
@@ -1106,6 +1183,7 @@ export default function App() {
           onAssignLayer={(object, layerId) => applyAction(createAction("ASSIGN_LAYER", { objectType: object.type, objectId: object.id, layerId }, clientId))}
           onTokenColor={(tokenId, color) => applyAction(createAction("UPDATE_TOKEN_COLOR", { tokenId, color }, clientId))}
           onTokenShape={(tokenId, shape) => applyAction(createAction("UPDATE_TOKEN_SHAPE", { tokenId, shape }, clientId))}
+          onTokenLabel={(tokenId, label) => applyAction(createAction("UPDATE_TOKEN_LABEL", { tokenId, label }, clientId))}
         />
       </div>
       <PlayerHands
@@ -1118,7 +1196,7 @@ export default function App() {
         onSetPerspectivePlayer={setPerspectivePlayerId}
         onMoveCardToBoard={(cardId) => {
           const card = session.cardInstances.find((item) => item.id === cardId);
-          const { x, y } = centeredPlacement(card?.width ?? 72, card?.height ?? 100);
+          const { x, y } = centeredPlacement(card?.width ?? 200, card?.height ?? 280);
           setLocalSelectedObjectId(cardId);
           applyAction(createAction("MOVE_CARD_TO_BOARD", { cardId, x, y, canvasId: activeCanvasId }, clientId));
         }}
@@ -1175,12 +1253,10 @@ export default function App() {
         pendingInvites={pendingInvites}
         selectedInvitePeerId={selectedInvitePeerId}
         answerCode={answerCode}
-        joinSeat={joinSeat}
         onClose={() => setModal(undefined)}
         onLocal={disconnect}
         onHost={startHost}
         onSelectInvite={setSelectedInvitePeerId}
-        onJoinSeat={setJoinSeat}
         onJoin={joinHost}
         onAcceptAnswer={acceptAnswer}
         onDisconnect={disconnect}

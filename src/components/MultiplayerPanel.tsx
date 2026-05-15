@@ -11,13 +11,11 @@ interface MultiplayerPanelProps {
   pendingInvites: { peerId: string; offerCode: string; createdAt: number }[];
   selectedInvitePeerId: string;
   answerCode: string;
-  joinSeat: 2 | 3 | 4;
   onClose: () => void;
   onLocal: () => void;
   onHost: () => void;
   onSelectInvite: (peerId: string) => void;
-  onJoinSeat: (seat: 2 | 3 | 4) => void;
-  onJoin: (offerCode: string, seat: 2 | 3 | 4) => void;
+  onJoin: (offerCode: string) => void;
   onAcceptAnswer: (answerCode: string) => void;
   onDisconnect: () => void;
   onDisconnectPeer: (peerId: string) => void;
@@ -135,22 +133,14 @@ export function MultiplayerPanel(props: MultiplayerPanelProps) {
             </div>
             <div className="multiplayer-help">
               <strong>Join window</strong>
-              <p>This browser is not the host. Choose your player seat, paste the host's offer code, then send the generated answer back to the host.</p>
+              <p>This browser is not the host. Paste the host's offer code, then send the generated answer back. The host assigns the next available player seat.</p>
             </div>
             <div className="signal-block">
-              <label>
-                Player Seat
-                <select value={props.joinSeat} onChange={(event) => props.onJoinSeat(Number(event.target.value) as 2 | 3 | 4)}>
-                  <option value={2}>Player 2</option>
-                  <option value={3}>Player 3</option>
-                  <option value={4}>Player 4</option>
-                </select>
-              </label>
               <label>
                 1. Paste the host's offer code here
                 <textarea value={offerInput} onChange={(event) => setOfferInput(event.target.value)} placeholder="Paste host offer code here" />
               </label>
-              <button title="Generate an answer code for the host." onClick={() => props.onJoin(offerInput, props.joinSeat)} disabled={!offerInput.trim()}>Generate Answer</button>
+              <button title="Generate an answer code for the host. The host assigns the next available player seat." onClick={() => props.onJoin(offerInput)} disabled={!offerInput.trim()}>Generate Answer</button>
               <label>
                 2. Send this answer code back to the host
                 <textarea readOnly value={props.answerCode} placeholder="Answer code appears here" />

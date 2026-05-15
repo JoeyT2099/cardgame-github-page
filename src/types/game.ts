@@ -35,6 +35,7 @@ export interface DeckInstance extends Omit<BoardObjectBase, "type"> {
   name: string;
   remainingCardAssetIds: string[];
   drawnCardAssetIds: string[];
+  cardBackAssetIds?: Record<string, string>;
   locked?: boolean;
 }
 

@@ -50,7 +50,7 @@ export const createEmptySession = (count: 2 | 3 | 4 = 2, name = "Untitled Sessio
 export const createLobbyPlayer = (clientId: string, isHost: boolean, index = 0): LobbyPlayer => ({
   clientId,
   playerId: crypto.randomUUID(),
-  name: isHost ? "Host" : `Player ${index + 1}`,
+  name: isHost ? "Player 1 (Host)" : `Player ${index + 1}`,
   color: colors[index % colors.length],
   connected: true,
   ready: isHost,

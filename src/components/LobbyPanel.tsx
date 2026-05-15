@@ -21,16 +21,18 @@ export function LobbyPanel({ lobby, localClientId, localPlayerId, onMaxPlayers, 
     return player.clientId === localClientId;
   };
   const self = lobby.players.find(isSelf) ?? lobby.players[0];
+  const selfDisplayName = self?.isHost && self.name === "Host" ? "Player 1 (Host)" : self?.name ?? "";
   const isLocal = lobby.mode === "local";
   const isHost = lobby.mode === "host";
   const seats = Array.from({ length: lobby.maxPlayers }, (_, index) => {
     const seatNumber = index + 1;
     const player = lobby.players.find((item, playerIndex) => (item.seatNumber ?? playerIndex + 1) === seatNumber);
     const fallbackName = isLocal ? (index === 0 ? self?.name || "Player 1" : `Player ${seatNumber}`) : `Player ${seatNumber}`;
+    const displayName = player?.isHost && player.name === "Host" ? "Player 1 (Host)" : player?.name;
     return {
       seatNumber,
       player,
-      name: player?.name ?? fallbackName,
+      name: displayName ?? fallbackName,
       status: player ? (player.connected ? "connected" : "disconnected") : isLocal ? "local seat" : "waiting",
       ready: player?.ready ?? isLocal,
       color: player?.color ?? "#64748b",
@@ -57,7 +59,7 @@ export function LobbyPanel({ lobby, localClientId, localPlayerId, onMaxPlayers, 
           <>
             <strong>Host setup</strong>
             <ol>
-              <li>You are Player 1.</li>
+              <li>You are Player 1 (Host).</li>
               <li>Open Multiplayer, copy the offer code, and send it to Player 2.</li>
               <li>Paste their answer code. That fills the next open player seat.</li>
               <li>Repeat for Player 3 and Player 4. Seats sync into hands automatically.</li>
@@ -83,7 +85,7 @@ export function LobbyPanel({ lobby, localClientId, localPlayerId, onMaxPlayers, 
       </div>
       <label>
         Your Name
-        <input value={self?.name ?? ""} onChange={(event) => onName(event.target.value)} />
+        <input value={selfDisplayName} onChange={(event) => onName(event.target.value)} />
       </label>
       <label>
         Players

@@ -8,6 +8,7 @@ export type NetworkStatus = "idle" | "signaling" | "connecting" | "connected" | 
 
 export type MultiplayerMessage =
   | { kind: "ACTION"; action: GameAction }
+  | { kind: "UNDO_REQUEST" }
   | { kind: "FULL_STATE_REQUEST" }
   | { kind: "FULL_STATE_SYNC"; session: GameSession; assets: AssetTemplate[]; deckTemplates: DeckTemplate[] }
   | { kind: "ASSET_SYNC"; assets: AssetTemplate[] }

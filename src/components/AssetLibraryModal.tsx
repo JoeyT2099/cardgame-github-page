@@ -31,9 +31,9 @@ const categories: { label: string; value: AssetFilter }[] = [
 ];
 
 const getDefaultSize = (mode: AssetLibraryModalProps["mode"]) => {
-  if (mode === "setBoard") return { width: 720, height: 420 };
-  if (mode === "token") return { width: 64, height: 64 };
-  return { width: 180, height: 140 };
+  if (mode === "setBoard") return { width: 1400, height: 400 };
+  if (mode === "token") return { width: 100, height: 100 };
+  return { width: 200, height: 280 };
 };
 
 type PlacementOrientation = "original" | "portrait" | "landscape" | "square";
