@@ -1068,7 +1068,6 @@ export default function App() {
         onAddToken={() => setModal("token")}
         onPlaceImage={() => setModal("placeImage")}
         onOpenMultiplayer={() => setModal("multiplayer")}
-        onUndo={undoLastAction}
         onSaveGame={() => saveGame()}
         onLoad={() => setModal("games")}
         onExport={exportSession}
@@ -1130,6 +1129,7 @@ export default function App() {
           activeCanvasId={activeCanvasId}
           activeLayerId={activeLayerId}
           onZoom={setBoardZoom}
+          onUndo={undoLastAction}
           onCanvasRotation={setBoardRotation}
           onViewCenterChange={updateBoardViewCenter}
           onCanvas={setActiveCanvasId}

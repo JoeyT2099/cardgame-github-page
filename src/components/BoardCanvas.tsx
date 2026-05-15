@@ -16,6 +16,7 @@ interface BoardCanvasProps {
   activeCanvasId: string;
   activeLayerId: string;
   onZoom: (zoom: number) => void;
+  onUndo: () => void;
   onCanvasRotation: (rotation: number) => void;
   onViewCenterChange: (point: { x: number; y: number }) => void;
   onCanvas: (canvasId: string) => void;
@@ -37,7 +38,7 @@ const effectiveZIndex = (layers: Layer[], layerId?: string, zIndex = 0): number 
 
 const normalizeRotation = (rotation: number) => (Number.isFinite(rotation) ? rotation : 0);
 
-export function BoardCanvas({ session, assets, canvasRotation, zoom, canvasTabs, activeCanvasId, activeLayerId, onZoom, onCanvasRotation, onViewCenterChange, onCanvas, onCreateCanvas, onDeleteCanvas, onRenameCanvas, onSelect, onMove, onDrawDeck }: BoardCanvasProps) {
+export function BoardCanvas({ session, assets, canvasRotation, zoom, canvasTabs, activeCanvasId, activeLayerId, onZoom, onUndo, onCanvasRotation, onViewCenterChange, onCanvas, onCreateCanvas, onDeleteCanvas, onRenameCanvas, onSelect, onMove, onDrawDeck }: BoardCanvasProps) {
   const assetMap = React.useMemo(() => new Map(assets.map((asset) => [asset.id, asset])), [assets]);
   const boardAsset = session.boardAssetId ? assetMap.get(session.boardAssetId) : undefined;
   const { layers } = session;
@@ -166,6 +167,7 @@ export function BoardCanvas({ session, assets, canvasRotation, zoom, canvasTabs,
       <div ref={canvasRef} className="board-canvas" onPointerDown={beginPan} onPointerMove={movePan} onPointerUp={endPan} onPointerCancel={endPan}>
         <div className="board-zoom-controls" onPointerDown={(event) => event.stopPropagation()}>
           <button title="Return to the canvas origin point." onClick={() => setPan({ x: 0, y: 0 })}>Origin</button>
+          <button title="Undo your previous table action." onClick={onUndo}>Undo</button>
           <button title="Zoom out." onClick={() => onZoom(Math.max(0.4, Number((zoom - 0.1).toFixed(2))))}>-</button>
           <input type="range" min="0.4" max="2.5" step="0.1" value={zoom} onChange={(event) => onZoom(Number(event.target.value))} />
           <button title="Zoom in." onClick={() => onZoom(Math.min(2.5, Number((zoom + 0.1).toFixed(2))))}>+</button>
